@@ -6,6 +6,10 @@ QtApplication {
         "src/graph.cpp",
         "src/graph.h",
         "src/main.cpp",
+        "src/render.cpp",
+        "src/render.h",
+        "src/runtimeerror.cpp",
+        "src/runtimeerror.h",
         "src/textimg.cpp",
         "src/textimg.h",
     ]

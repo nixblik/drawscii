@@ -3,10 +3,48 @@
 
 
 
-inline void Node::set(NodeKind kind, Direction edge)
+int Direction::dx() const noexcept
+{
+  switch (mDir)
+  {
+    case Up:
+    case Down:      return 0;
+    case DownLeft:
+    case Left:
+    case UpLeft:    return -1;
+    case UpRight:
+    case Right:
+    case DownRight: return +1;
+  }
+
+  Q_UNREACHABLE();
+}
+
+
+
+int Direction::dy() const noexcept
+{
+  switch (mDir)
+  {
+    case Right:
+    case Left:      return 0;
+    case UpLeft:
+    case Up:
+    case UpRight:   return -1;
+    case DownRight:
+    case Down:
+    case DownLeft:  return +1;
+  }
+
+  Q_UNREACHABLE();
+}
+
+
+
+inline void Node::set(NodeKind kind, Directions edges)
 {
   mKind   = kind;
-  mEdges |= edge;
+  mEdges |= edges;
 }
 
 
@@ -138,33 +176,17 @@ void Graph::findMoreCorners(const TextImg& txt, int x, int y)
 
 
 
-void Graph::makeEdge(int x, int y, NodeKind k1, Direction dir2, NodeKind k2)
+void Graph::makeEdge(int x, int y, NodeKind k, Direction dir2, NodeKind k2)
 {
-  node(x, y).set(k1, dir2);
-  makeRevEdge(x, y, dir2, k2);
+  node(x, y).set(k, dir2);
+  node(x + dir2.dx(), y + dir2.dy()).set(k2, dir2.opposite());
 }
 
 
 
 void Graph::makeCorner(int x, int y, NodeKind k1, Direction dir2, NodeKind k2, Direction dir3, NodeKind k3)
 {
-  node(x, y).set(k1, static_cast<Direction>(dir2|dir3));
-  makeRevEdge(x, y, dir2, k2);
-  makeRevEdge(x, y, dir3, k3);
-}
-
-
-
-void Graph::makeRevEdge(int x, int y, Direction dir2, NodeKind k2)
-{
-  switch (dir2)
-  {
-    case Left:  --x; dir2 = Right; break;
-    case Right: ++x; dir2 = Left;  break;
-    case Up:    --y; dir2 = Down;  break;
-    case Down:  ++y; dir2 = Up;    break;
-    default:    Q_UNREACHABLE();
-  }
-
-  node(x,y).set(k2, dir2);
+  node(x, y).set(k1, dir2|dir3);
+  node(x + dir2.dx(), y + dir2.dy()).set(k2, dir2.opposite());
+  node(x + dir3.dx(), y + dir3.dy()).set(k3, dir3.opposite());
 }

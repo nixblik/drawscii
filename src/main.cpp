@@ -1,10 +1,12 @@
-#include "textimg.h"
+#include "render.h"
 #include "graph.h"
+#include "runtimeerror.h"
+#include "textimg.h"
 #include <iostream>
-#include <stdexcept>
 #include <QCommandLineParser>
 #include <QGuiApplication>
 #include <QFile>
+#include <QFileInfo>
 
 
 
@@ -40,6 +42,7 @@ void processCmdLine(const QCoreApplication& app)
 
 
 
+// FIXME: Remove debug plot
 void plot(const Graph& graph)
 {
   for (int y = 0; y < graph.height(); ++y)
@@ -71,41 +74,17 @@ void plot(const Graph& graph)
 
 
 
-#include <QImage>
-#include <QPainter>
-void draw(const Graph& graph, const TextImg& txt)
+TextImg readTextImg(QString fname)
 {
-  QFont fn;
-  QFontMetrics fm(fn);
-  int fac = fm.height();
-  QImage img(graph.size() * fac, QImage::Format_ARGB32_Premultiplied);
-  QPainter painter(&img);
-  painter.setRenderHint(QPainter::HighQualityAntialiasing);
+  QFile fd{fname};
+  if (!fd.open(QFile::ReadOnly))
+    throw RuntimeError{fname, ": ", fd.errorString()};
 
-  for (int y = 0; y < graph.height(); ++y)
-  {
-    for (int x = 0; x < graph.width(); ++x)
-    {
-      auto node = graph.node(x,y);
-      if (node.kind() == Text)
-      {
-        QChar ch = txt(x,y);
-        if (ch.isPrint())
-          painter.drawText(QRect(x*fac-fac/2, y*fac-fac/2, fac, fac), Qt::AlignHCenter, QString(ch));
-      }
-      else
-      {
-        if (node.hasEdge(Right))
-          painter.drawLine(x*fac, y*fac, (x+1)*fac, y*fac);
+  QTextStream in{&fd};
+  TextImg txt;
+  txt.read(in);
 
-        if (node.hasEdge(Down))
-          painter.drawLine(x*fac, y*fac, x*fac, (y+1)*fac);
-      }
-    }
-  }
-
-  if (!img.save(outputFile)) // FIXME: use QFile for better error messages
-    throw std::runtime_error{qPrintable(outputFile + ": Failed to write file")};
+  return txt;
 }
 
 
@@ -116,22 +95,31 @@ try
   QGuiApplication app{argc, argv};
   app.setApplicationName("draawsci");
   app.setApplicationVersion(VERSION);
-
   processCmdLine(app);
 
-  QFile fd{inputFile};
-  if (!fd.open(QFile::ReadOnly))
-    throw std::runtime_error(qPrintable(inputFile + ": " + fd.errorString()));
-
-  QTextStream in{&fd};
-  TextImg txt;
-  txt.read(in);
-
+  auto txt   = readTextImg(inputFile);
   auto graph = Graph::from(txt);
-  if (!outputFile.isEmpty())
-    draw(graph, txt);
-  else
-    plot(graph);
+
+  Render render{graph, txt};
+
+  // FIXME: What if outputFile is empty?
+  {
+    QFile fd{outputFile};
+    if (!fd.open(QFile::WriteOnly|QFile::Truncate))
+      throw RuntimeError{outputFile, ": ", fd.errorString()};
+
+    QFileInfo fi{outputFile};
+    if (fi.suffix() == "svg")
+    {
+      render.svg();
+    }
+    else
+    {
+      auto img = render.image();
+      if (!img.save(&fd))
+        throw RuntimeError{outputFile, ": Failed to write image file"};
+    }
+  }
 
   return 0;
 }

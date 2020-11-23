@@ -3,13 +3,16 @@
 #include <QSize>
 #include <QVector>
 class TextImg;
+class QFile;
 
 
 
 enum NodeKind : quint8
 { Text, Line, Round, Arrow };
 
-enum Direction : quint8
+
+
+enum Directions : quint8
 {
   Up         = 0x01,
   UpRight    = 0x02,
@@ -20,6 +23,42 @@ enum Direction : quint8
   Left       = 0x40,
   UpLeft     = 0x80,
 };
+
+
+constexpr Directions operator|(Directions a, Directions b) noexcept
+{ return static_cast<Directions>(unsigned{a} | unsigned{b}); }
+
+
+
+class Direction
+{
+  public:
+    constexpr Direction(Directions dir) noexcept
+      : mDir{dir}
+    {}
+
+    constexpr Directions flag() const noexcept
+    { return mDir; }
+
+    constexpr Direction opposite() const noexcept
+    { return static_cast<Directions>(mDir <= DownRight ? mDir << 4 : mDir >> 4); }
+
+    constexpr Direction turnedRight() const noexcept
+    { return static_cast<Directions>(mDir == UpLeft ? Up : mDir << 1); }
+
+    constexpr Direction turnedLeft() const noexcept
+    { return static_cast<Directions>(mDir == Up ? UpLeft : mDir >> 1); }
+
+    int dx() const noexcept;
+    int dy() const noexcept;
+
+  private:
+    Directions mDir;
+};
+
+
+constexpr Directions operator|(Direction a, Direction b) noexcept
+{ return a.flag() | b.flag(); }
 
 
 
@@ -35,9 +74,12 @@ class Node
     { return mKind; }
 
     bool hasEdge(Direction dir) const noexcept
-    { return mEdges & dir; }
+    { return mEdges & dir.flag(); }
 
-    void set(NodeKind kind, Direction edge);
+    void set(NodeKind kind, Direction edge)
+    { set(kind, edge.flag()); }
+
+    void set(NodeKind kind, Directions edges);
 
   private:
     NodeKind mKind;
