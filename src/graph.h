@@ -66,6 +66,9 @@ constexpr bool operator!=(Direction a, Direction b) noexcept
 constexpr bool operator!=(Direction a, Directions b) noexcept
 { return a.flag() != b; }
 
+constexpr bool operator==(Direction a, Directions b) noexcept
+{ return a.flag() == b; }
+
 
 
 class Node
@@ -73,6 +76,7 @@ class Node
   public:
     constexpr Node() noexcept
       : mKind{Text},
+        mDashed{false},
         mEdges{0}
     {}
 
@@ -85,13 +89,16 @@ class Node
     bool hasEdge(Direction dir) const noexcept
     { return mEdges & dir.flag(); }
 
-    void set(NodeKind kind, Direction edge)
-    { set(kind, edge.flag()); }
+    bool isDashed() const noexcept
+    { return mDashed; }
 
     void set(NodeKind kind, Directions edges);
+    void set(NodeKind kind, Direction edge);
+    void setDashed();
 
   private:
-    NodeKind mKind;
+    NodeKind mKind : 7;
+    bool   mDashed : 1;
     quint8 mEdges;
 };
 
@@ -123,12 +130,16 @@ class Graph
       return mNodes[y * mSize.width() + x];
     }
 
+    Direction walkRoundCorner(Direction dir, int x, int y, QChar cornerCh) const noexcept;
+
   private:
     explicit Graph(const QSize& sz);
     void readFrom(const TextImg& txt);
     void pass1(const TextImg& txt);
     void pass2(const TextImg& txt);
+    void pass3(const TextImg& txt);
     void findMoreCorners(const TextImg& txt, int x, int y);
+    void spreadDashing(const TextImg& txt, int x, int y, Direction dir);
     void makeEdge(int x, int y, NodeKind k1, Direction dir, NodeKind k2);
     void makeCorner(int x, int y, NodeKind k1, Direction dir2, NodeKind k2, Direction dir3, NodeKind k3);
     void makeRevEdge(int x, int y, Direction dir, NodeKind k2);

@@ -70,9 +70,13 @@ class Render
     const TextImg& mTxt;
     const Graph& mGraph;
     QFont mFont;
+    QPen mSolidPen;
+    QPen mDashedPen;
+    QPen mArrowPen;
+    QBrush mBrush;
     QPainter mPainter;
     Bitmap mDone;
-    QPainterPath mArrows[4];
+    QPolygonF mArrows[4];
     ParagraphList mParagraphs;
     ParagraphList mActives;
 

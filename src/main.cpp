@@ -43,38 +43,6 @@ void processCmdLine(const QCoreApplication& app)
 
 
 
-// FIXME: Remove debug plot
-void plot(const Graph& graph)
-{
-  for (int y = 0; y < graph.height(); ++y)
-  {
-    for (int x = 0; x < graph.width(); ++x)
-    {
-      auto node = graph.node(x,y);
-      switch (node.kind())
-      {
-        case Text:  std::cout << " "; break;
-        case Line:  std::cout << "·"; break;
-        case Round: std::cout << "r"; break;
-        case Arrow: std::cout << "a"; break;
-      }
-
-      std::cout << (node.hasEdge(Right) ? "-" : " ");
-    }
-    std::cout << '\n';
-
-    for (int x = 0; x < graph.width(); ++x)
-    {
-      auto node = graph.node(x,y);
-      std::cout << (node.hasEdge(Down) ? "|" : " ");
-      std::cout << ' ';
-    }
-    std::cout << '\n';
-  }
-}
-
-
-
 TextImg readTextImg(QString fname)
 {
   QFile fd{fname};
@@ -102,7 +70,7 @@ try
   auto graph = Graph::from(txt);
 
   Render render{graph, txt};
-  render.setFont(QFont{"Open Sans"}); // FIXME
+  render.setFont(QFont{"Open Sans"}); // FIXME font
 
   // FIXME: What if outputFile is empty?
   {

@@ -49,6 +49,15 @@ inline void Node::set(NodeKind kind, Directions edges)
 
 
 
+inline void Node::set(NodeKind kind, Direction edge)
+{ set(kind, edge.flag()); }
+
+
+inline void Node::setDashed()
+{ mDashed = true; }
+
+
+
 Graph Graph::from(const TextImg& txt)
 {
   Graph gr{txt.size()};
@@ -70,6 +79,7 @@ void Graph::readFrom(const TextImg& txt)
 {
   pass1(txt);
   pass2(txt);
+  pass3(txt);
 }
 
 
@@ -115,13 +125,17 @@ void Graph::pass1(const TextImg& txt)
           break;
 
         case '/':
-          if (txt(x+1,y).isOneOf("-=+") && txt(x,y+1).isOneOf("|:+")) makeCorner(x, y, Round, Right, Line, Down, Line);
-          if (txt(x-1,y).isOneOf("-=+") && txt(x,y-1).isOneOf("|:+")) makeCorner(x, y, Round, Left, Line, Up, Line);
+          if (txt(x,y+1).isOneOf("|:+\\") && txt(x+1,y).isOneOf("-=+")) makeCorner(x, y, Round, Right, Line, Down, Line);
+          if (txt(x,y-1).isOneOf("|:+")   && txt(x-1,y).isOneOf("-=+")) makeCorner(x, y, Round, Left, Line, Up, Line);
+          if (txt(x,y-1) == '\\'          && txt(x-1,y).isOneOf("-=+")) makeCorner(x, y, Round, Left, Line, Up, Round);
+          if (txt(x-1,y+1) == '/')                                      makeEdge(x, y, Line, DownLeft, Line);
           break;
 
         case '\\':
-          if (txt(x-1,y).isOneOf("-=+") && txt(x,y+1).isOneOf("|:+")) makeCorner(x, y, Round, Left, Line, Down, Line);
-          if (txt(x+1,y).isOneOf("-=+") && txt(x,y-1).isOneOf("|:+")) makeCorner(x, y, Round, Right, Line, Up, Line);
+          if (txt(x,y+1).isOneOf("|:+/") && txt(x-1,y).isOneOf("-=+")) makeCorner(x, y, Round, Left, Line, Down, Line);
+          if (txt(x,y-1).isOneOf("|:+")  && txt(x+1,y).isOneOf("-=+")) makeCorner(x, y, Round, Right, Line, Up, Line);
+          if (txt(x,y-1) == '/'          && txt(x+1,y).isOneOf("-=+")) makeCorner(x, y, Round, Right, Line, Up, Round);
+          if (txt(x+1,y+1) == '\\')                                    makeEdge(x, y, Line, DownRight, Line);
           break;
       }
     }
@@ -172,6 +186,85 @@ void Graph::findMoreCorners(const TextImg& txt, int x, int y)
     if (node(x,y+1).kind() == Text)
       findMoreCorners(txt, x, y+1);
   }
+}
+
+
+
+// Third pass of graph construction from txt. Determines line dashing.
+//
+void Graph::pass3(const TextImg& txt)
+{
+  for (int y = 0; y < mSize.height(); ++y)
+  {
+    for (int x = 0; x < mSize.width(); ++x)
+    {
+      auto nd = node(x, y);
+      if (!nd.isLine())
+        continue;
+
+      switch (txt(x,y).toLatin1())
+      {
+        case '=': if (!nd.isDashed()) spreadDashing(txt, x, y, Left); break;
+        case ':': if (!nd.isDashed()) spreadDashing(txt, x, y, Up); break;
+      }
+    }
+  }
+}
+
+
+
+void Graph::spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0)
+{
+  auto& nd0 = node(x0, y0);
+  nd0.setDashed();
+
+  for (int i = 0; i < 2; ++i, dir0 = dir0.opposite())
+  {
+    Direction dir = dir0;
+    if (!nd0.hasEdge(dir))
+      continue;
+
+    int x = x0;
+    int y = y0;
+
+    for (;;)
+    {
+      x += dir.dx();
+      y += dir.dy();
+
+      auto& nd = node(x, y);
+      if (nd.isDashed())
+        break;
+
+      nd.setDashed();
+      if (nd.kind() == Round)
+        dir = walkRoundCorner(dir, x, y, txt(x,y));
+      else if (nd.kind() == Arrow)
+        break;
+
+      if (!nd.hasEdge(dir))
+        break;
+    }
+  }
+}
+
+
+
+Direction Graph::walkRoundCorner(Direction dir, int x, int y, QChar cornerCh) const noexcept
+{
+  Q_UNUSED(x); // Needed later when corners can lead to inclined lines
+  Q_UNUSED(y);
+
+  bool horzDir = (dir == Left || dir == Right);
+  bool vertDir = (dir == Down || dir == Up);
+
+  if ((horzDir && cornerCh == '/') || (vertDir && cornerCh == '\\'))
+    return dir.turnedLeft().turnedLeft();
+
+  if ((horzDir && cornerCh == '\\') || (vertDir && cornerCh == '/'))
+    return dir.turnedRight().turnedRight();
+
+  Q_UNREACHABLE();
 }
 
 

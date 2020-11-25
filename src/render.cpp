@@ -74,7 +74,7 @@ bool Paragraph::addLine(QString&& line, int x, int y)
       l.prepend(spaces);
 
   mLines.append(std::move(line));
-  mRect = mRect.united(QRect{x, y, line.size(), 1});
+  mRect = mRect.united(QRect{x, y, endx - x, 1});
 
   return true;
 }
@@ -130,6 +130,10 @@ int Paragraph::pixelWidth(const QFontMetrics& fm) const noexcept
 Render::Render(const Graph& graph, const TextImg& txt)
   : mTxt{txt},
     mGraph{graph},
+    mSolidPen{Qt::black, 2},
+    mDashedPen{Qt::black, 2, Qt::DashLine},
+    mArrowPen{Qt::black, 2, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin},
+    mBrush{Qt::black},
     mDone{graph.size()}
 {
   computeRenderParams();
@@ -155,10 +159,9 @@ void Render::computeRenderParams()
   mRadius = (mScaleX + mScaleY) / 3;
 
   auto& arrow = mArrows[0];
-  arrow.moveTo(mDeltaX, 0);
-  arrow.lineTo(-mDeltaX/2, -mDeltaY/2);
-  arrow.lineTo(-mDeltaX/2, mDeltaY/2);
-  arrow.closeSubpath();
+  arrow.append(QPointF(mDeltaX, 0));
+  arrow.append(QPointF(-0.5 * mDeltaX, -0.4 * mDeltaY));
+  arrow.append(QPointF(-0.5 * mDeltaX,  0.4 * mDeltaY));
 
   for (int i = 1; i < 4; ++i)
   {
@@ -186,11 +189,12 @@ inline QRect Render::textRect(const QRect& r) const noexcept
 void Render::paint(QPaintDevice* dev)
 {
   mPainter.begin(dev);
-  mPainter.setRenderHints(QPainter::Antialiasing|QPainter::HighQualityAntialiasing|QPainter::SmoothPixmapTransform);
+  mPainter.setRenderHints(QPainter::Antialiasing|QPainter::HighQualityAntialiasing);
+  mPainter.setRenderHint(QPainter::TextAntialiasing);
+  mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
   mPainter.setFont(mFont);
 //mPainter.translate(0.5, 0.5);
 
-  mPainter.setPen(QPen(Qt::black, 2));
   mPainter.setBrush(Qt::black);
   drawLines();
 
@@ -202,6 +206,14 @@ void Render::paint(QPaintDevice* dev)
 
 
 
+// FIXME: Rendering bug because I mark grid points done, not edges
+//
+//  +---\
+// -+---/
+//
+// FIXME: Follow round corners
+//        Dashed lines do not look good otherwise
+//
 void Render::drawLines()
 {
   mDone.clear();
@@ -246,6 +258,7 @@ void Render::drawLineFrom(int x0, int y0, Direction dir)
   if (mDone.get(x, y))
     return;
 
+  bool dashed = true;
   do
   {
     mDone.set(x, y);
@@ -255,6 +268,7 @@ void Render::drawLineFrom(int x0, int y0, Direction dir)
       if (node.hasEdge(other) && other != rev)
         drawLineFrom(x, y, other);
 
+    dashed &= node.isDashed();
     if (!node.hasEdge(dir))
       break;
 
@@ -272,6 +286,7 @@ void Render::drawLineFrom(int x0, int y0, Direction dir)
   if (mGraph.node(x, y).kind() == Round)
     p1 -= QPoint{dx*mRadius, dy*mRadius};
 
+  mPainter.setPen(dashed ? mDashedPen : mSolidPen);
   mPainter.drawLine(p0, p1);
 }
 
@@ -281,6 +296,8 @@ void Render::drawRoundCorner(Node node, int x, int y)
 {
   auto p = point(x, y);
   auto d = 2 * mRadius;
+
+  mPainter.setPen(mGraph.node(x, y).isDashed() ? mDashedPen : mSolidPen);
 
   switch (mTxt(x, y).toLatin1())
   {
@@ -312,14 +329,16 @@ void Render::drawArrow(int x, int y)
   switch (mTxt(x, y).toLatin1())
   {
     case '>': arrowIdx = 0; break;
-    case '^': arrowIdx = 1; break;
+    case '^': arrowIdx = 3; break;
     case '<': arrowIdx = 2; break;
     case 'v':
-    case 'V': arrowIdx = 3; break;
+    case 'V': arrowIdx = 1; break;
     default:  Q_UNREACHABLE();
   }
 
-  mPainter.drawPath(mArrows[arrowIdx].translated(point(x, y)));
+  mPainter.setPen(mArrowPen);
+  mPainter.setBrush(mBrush);
+  mPainter.drawPolygon(mArrows[arrowIdx].translated(point(x, y)), Qt::WindingFill);
 }
 
 
@@ -347,7 +366,7 @@ void Render::findParagraphs()
         if (!spc || !line.isEmpty())
           line.append(ch);
 
-        if (spaces <= 1)
+        if (spaces <= 1 && x + 1 < mTxt.width())
           continue;
       }
 
@@ -427,7 +446,7 @@ void Render::drawParagraphs()
         lalign = Qt::AlignHCenter;
 
       QRect lrect{rect.x(), ly, rect.width(), mScaleY};
-      mPainter.drawText(lrect, lalign, line); // FIXME: Remove leading spaces?
+      mPainter.drawText(lrect, lalign, line.trimmed());
     }
   }
 }
