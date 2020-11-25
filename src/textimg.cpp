@@ -11,11 +11,11 @@ TextImg::TextImg() noexcept
 Char TextImg::operator()(int x, int y) const noexcept
 {
   if (y < 0 || y >= height())
-    return Char{};
+    return ' ';
 
   auto& line = mLines[y];
   if (x < 0 || x >= line.size())
-    return Char{};
+    return ' ';
 
   return line[x];
 }

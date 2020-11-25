@@ -60,6 +60,12 @@ class Direction
 constexpr Directions operator|(Direction a, Direction b) noexcept
 { return a.flag() | b.flag(); }
 
+constexpr bool operator!=(Direction a, Direction b) noexcept
+{ return a.flag() != b.flag(); }
+
+constexpr bool operator!=(Direction a, Directions b) noexcept
+{ return a.flag() != b; }
+
 
 
 class Node
@@ -72,6 +78,9 @@ class Node
 
     NodeKind kind() const noexcept
     { return mKind; }
+
+    bool isLine() const noexcept
+    { return mKind != Text; }
 
     bool hasEdge(Direction dir) const noexcept
     { return mEdges & dir.flag(); }

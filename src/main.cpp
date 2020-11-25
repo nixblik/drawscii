@@ -4,9 +4,10 @@
 #include "textimg.h"
 #include <iostream>
 #include <QCommandLineParser>
-#include <QGuiApplication>
 #include <QFile>
 #include <QFileInfo>
+#include <QGuiApplication>
+#include <QImage>
 
 
 
@@ -101,6 +102,7 @@ try
   auto graph = Graph::from(txt);
 
   Render render{graph, txt};
+  render.setFont(QFont{"Open Sans"}); // FIXME
 
   // FIXME: What if outputFile is empty?
   {
@@ -111,11 +113,13 @@ try
     QFileInfo fi{outputFile};
     if (fi.suffix() == "svg")
     {
-      render.svg();
+      // FIXME: paint svg using QSvgGenerator
     }
     else
     {
-      auto img = render.image();
+      QImage img{render.size(), QImage::Format_ARGB32_Premultiplied};
+      render.paint(&img);
+
       if (!img.save(&fd))
         throw RuntimeError{outputFile, ": Failed to write image file"};
     }

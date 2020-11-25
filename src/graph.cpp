@@ -137,7 +137,7 @@ void Graph::pass2(const TextImg& txt)
 {
   for (int y = 0; y < mSize.height(); ++y)
     for (int x = 0; x < mSize.width(); ++x)
-      if (txt(x,y) == '+' && node(x,y).kind() != Text)
+      if (txt(x,y) == '+' && node(x,y).isLine())
         findMoreCorners(txt, x, y);
 }
 

@@ -6,66 +6,228 @@
 
 
 
-Render::Render(const Graph& graph, const TextImg& txt)
-  : mTxt{txt},
-    mGraph{graph},
-    mPainter{nullptr}
-{}
-
-
-
-QImage Render::image()
+Bitmap::Bitmap(QSize sz)
+  : mSize{sz}
 {
-  QFont font;
-  QFontMetrics fm(font);
-  sx = fm.width("w");
-  sy = fm.height();
-  dx = sx/2;
-  dy = sy/2;
-
-  QImage img{mGraph.width()*sx, mGraph.height()*sy, QImage::Format_ARGB32_Premultiplied};
-  QPainter painter(&img);
-  painter.setRenderHints(QPainter::Antialiasing|QPainter::HighQualityAntialiasing|QPainter::SmoothPixmapTransform);
-  //painter.translate(0.5, 0.5);
-  painter.setPen(QPen(Qt::black, 2));
-  mPainter = &painter;
-
-  draw();
-  return img;
+  mBits.resize(mSize.width() * mSize.height());
 }
 
 
 
-void Render::svg()
-{}
-
-
-
-void Render::draw()
+inline bool Bitmap::get(int x, int y) const
 {
+  Q_ASSERT(x >= 0 && x < mSize.width() && y >= 0 && y < mSize.height());
+  return mBits[y * mSize.width() + x];
+}
+
+
+
+inline void Bitmap::clear()
+{ mBits.fill(false); }
+
+
+
+inline void Bitmap::set(int x, int y, bool v)
+{
+  Q_ASSERT(x >= 0 && x < mSize.width() && y >= 0 && y < mSize.height());
+  mBits[y * mSize.width() + x] = v;
+}
+
+
+
+Paragraph::Paragraph(QString&& line, int x, int y)
+  : mRect{x, y, line.size(), 1}
+{
+  mLines.append(std::move(line));
+}
+
+
+
+inline int Paragraph::size() const noexcept
+{ return mLines.size(); }
+
+inline const QString& Paragraph::operator[](int index) const
+{ return mLines[index]; }
+
+inline const QRect& Paragraph::rect() const noexcept
+{ return mRect; }
+
+inline int Paragraph::bottom() const noexcept
+{ return mRect.bottom(); }
+
+
+
+bool Paragraph::addLine(QString&& line, int x, int y)
+{
+  Q_ASSERT(y <= mRect.bottom() + 1);
+
+  int endx = x + line.size();
+  if (endx <= mRect.left() || x > mRect.right() || y <= mRect.bottom())
+    return false;
+
+  QString spaces{qAbs(x - mRect.x()), QChar{' '}};
+
+  if (x > mRect.x())
+    line.prepend(spaces);
+  else if (x < mRect.x())
+    for (auto& l: mLines)
+      l.prepend(spaces);
+
+  mLines.append(std::move(line));
+  mRect = mRect.united(QRect{x, y, line.size(), 1});
+
+  return true;
+}
+
+
+
+namespace {
+inline int leadingSpaces(const QString& s)
+{
+  for (int i = 0; i < s.size(); ++i)
+    if (!s[i].isSpace())
+      return i;
+
+  Q_UNREACHABLE();
+}
+} // namespace
+
+
+
+Qt::Alignment Paragraph::alignment() const noexcept
+{
+  int left   = 0;
+  int center = 0;
+  int right  = 0;
+
+  for (auto& line: mLines)
+  {
+    int spc = leadingSpaces(line);
+    left   += (spc == 0);
+    center += qAbs(mRect.width() - line.size() - spc) <= 1;
+    right  += line.size() == mRect.width();
+  }
+
+  if (left > center)
+    return right > left ? Qt::AlignRight : Qt::AlignLeft;
+  else
+    return right > center ? Qt::AlignRight : Qt::AlignHCenter;
+}
+
+
+
+int Paragraph::pixelWidth(const QFontMetrics& fm) const noexcept
+{
+  int wd = 0;
+  for (auto& line: mLines)
+    wd = qMax(wd, fm.width(line));
+
+  return wd;
+}
+
+
+
+Render::Render(const Graph& graph, const TextImg& txt)
+  : mTxt{txt},
+    mGraph{graph},
+    mDone{graph.size()}
+{
+  computeRenderParams();
+}
+
+
+
+void Render::setFont(const QFont& font)
+{
+  mFont = font;
+  computeRenderParams();
+}
+
+
+
+void Render::computeRenderParams()
+{
+  QFontMetrics fm{mFont};
+  mScaleX = fm.width("w");
+  mScaleY = fm.height();
+  mDeltaX = mScaleX/2;
+  mDeltaY = mScaleY/2;
+  mRadius = (mScaleX + mScaleY) / 3;
+
+  auto& arrow = mArrows[0];
+  arrow.moveTo(mDeltaX, 0);
+  arrow.lineTo(-mDeltaX/2, -mDeltaY/2);
+  arrow.lineTo(-mDeltaX/2, mDeltaY/2);
+  arrow.closeSubpath();
+
+  for (int i = 1; i < 4; ++i)
+  {
+    QTransform t;
+    t.rotate(90*i);
+    mArrows[i] = t.map(arrow);
+  }
+}
+
+
+
+QSize Render::size() const noexcept
+{ return {mGraph.width() * mScaleX, mGraph.height() * mScaleY}; }
+
+
+inline QPoint Render::point(int x, int y) const noexcept
+{ return {x*mScaleX + mDeltaX, y*mScaleY + mDeltaY}; }
+
+
+inline QRect Render::textRect(const QRect& r) const noexcept
+{ return {r.x()*mScaleX, r.y()*mScaleY, r.width()*mScaleX, r.height()*mScaleY}; }
+
+
+
+void Render::paint(QPaintDevice* dev)
+{
+  mPainter.begin(dev);
+  mPainter.setRenderHints(QPainter::Antialiasing|QPainter::HighQualityAntialiasing|QPainter::SmoothPixmapTransform);
+  mPainter.setFont(mFont);
+//mPainter.translate(0.5, 0.5);
+
+  mPainter.setPen(QPen(Qt::black, 2));
+  mPainter.setBrush(Qt::black);
+  drawLines();
+
+  findParagraphs();
+  drawParagraphs();
+
+  mPainter.end();
+}
+
+
+
+void Render::drawLines()
+{
+  mDone.clear();
+
   for (int y = 0; y < mGraph.height(); ++y)
   {
     for (int x = 0; x < mGraph.width(); ++x)
     {
-      auto node = mGraph.node(x,y);
+      auto node = mGraph.node(x, y);
+      if (!node.isLine())
+        continue;
+
+      if (!mDone.get(x, y))
+      {
+        mDone.set(x, y);
+        for (Direction dir = Right; dir != Left; dir = dir.turnedRight())
+          if (node.hasEdge(dir))
+            drawLineFrom(x, y, dir);
+      }
+
       switch (node.kind())
       {
-        case Text: {
-          // FIXME: Postprocess text and draw much differently
-          QChar ch = mTxt(x,y);
-          if (ch.isPrint())
-            mPainter->drawText(QRect(x*sx, y*sy, sx, sy), Qt::AlignHCenter, QString(ch));
-          break;
-        }
-
-        // FIXME: Try to convert all straight lines into a single draw, like,
-        // up to the corner. Follow the curved lines. Might do a transformation
-        // graph -> list<painterpath>, all the while keeping a bitmap where
-        // nodes are checked off.
-        case Line:  drawLine(node, x, y); break;
-        case Round: drawRound(node, x, y); break;
-        case Arrow:
-          break;
+        case Text:
+        case Line:  break;
+        case Round: drawRoundCorner(node, x, y); break;
+        case Arrow: drawArrow(x, y); break;
       }
     }
   }
@@ -73,79 +235,199 @@ void Render::draw()
 
 
 
-inline void Render::drawLine(Node node, int x, int y)
+void Render::drawLineFrom(int x0, int y0, Direction dir)
 {
-  auto lx = x*sx + dx;
-  auto ly = y*sy + dy;
+  auto rev = dir.opposite();
+  int  dx  = dir.dx();
+  int  dy  = dir.dy();
+  int  x   = x0 + dx;
+  int  y   = y0 + dy;
 
-  if (node.hasEdge(Right) && mGraph.node(x+1,y).kind() != Round)
-    drawLine(lx, ly, lx+sx, ly);
+  if (mDone.get(x, y))
+    return;
 
-  if (node.hasEdge(Down) && mGraph.node(x,y+1).kind() != Round)
-    drawLine(lx, ly, lx, ly+sy);
+  do
+  {
+    mDone.set(x, y);
+
+    auto node = mGraph.node(x, y);
+    for (Direction other = dir.turnedRight(); other != dir; other = other.turnedRight())
+      if (node.hasEdge(other) && other != rev)
+        drawLineFrom(x, y, other);
+
+    if (!node.hasEdge(dir))
+      break;
+
+    x += dx;
+    y += dy;
+  }
+  while (!mDone.get(x, y));
+
+  auto p0 = point(x0, y0);
+  auto p1 = point(x, y);
+
+  if (mGraph.node(x0, y0).kind() == Round)
+    p0 += QPoint{dx*mRadius, dy*mRadius};
+
+  if (mGraph.node(x, y).kind() == Round)
+    p1 -= QPoint{dx*mRadius, dy*mRadius};
+
+  mPainter.drawLine(p0, p1);
 }
 
 
 
-inline void Render::drawLine(int x1, int y1, int x2, int y2)
+void Render::drawRoundCorner(Node node, int x, int y)
 {
-  if (mPainter)
-    mPainter->drawLine(x1, y1, x2, y2);
-}
+  auto p = point(x, y);
+  auto d = 2 * mRadius;
 
-
-
-inline void Render::drawRound(Node node, int x, int y)
-{
-  auto lx = x*sx + dx;
-  auto ly = y*sy + dy;
-  int  r  = (sx + sy) / 3;
-
-  switch (mTxt(x,y).toLatin1())
+  switch (mTxt(x, y).toLatin1())
   {
     case '/': {
       if (node.hasEdge(Left))
-      {
-        mPainter->drawLine(lx-r, ly, lx-sx, ly);
-        mPainter->drawArc(lx-2*r, ly-2*r, 2*r, 2*r, 270*16, 90*16);
-        mPainter->drawLine(lx, ly-r, lx, ly-sy);
-      }
-
+        mPainter.drawArc(p.x()-d, p.y()-d, d, d, 270*16, 90*16);
       if (node.hasEdge(Right))
-      {
-        mPainter->drawLine(lx+r, ly, lx+sx, ly);
-        mPainter->drawArc(lx, ly, 2*r, 2*r, 90*16, 90*16);
-        mPainter->drawLine(lx, ly+r, lx, ly+sy);
-      }
-
+        mPainter.drawArc(p.x(), p.y(), d, d, 90*16, 90*16);
       break;
     }
 
     case '\\': {
       if (node.hasEdge(Left))
-      {
-        QPainterPath pp;
-        pp.moveTo(-sx, 0);
-        pp.lineTo(-r, 0);
-        pp.arcTo(-2*r, 0, 2*r, 2*r, 90, -90);
-        pp.lineTo(0, sy);
-        mPainter->drawPath(pp.translated(lx, ly));
-
-//        mPainter->drawLine(lx-r, ly, lx-sx, ly);
-//        mPainter->drawArc(lx-2*r, ly, 2*r, 2*r, 0*16, 90*16);
-//        mPainter->drawLine(lx, ly+r, lx, ly+sy);
-      }
-
+        mPainter.drawArc(p.x()-d, p.y(), d, d, 0*16, 90*16);
       if (node.hasEdge(Right))
-      {
-        mPainter->drawLine(lx+r, ly, lx+sx, ly);
-        mPainter->drawArc(lx, ly-2*r, 2*r, 2*r, 180*16, 90*16);
-        mPainter->drawLine(lx, ly-r, lx, ly-sy);
-      }
-
+        mPainter.drawArc(p.x(), p.y()-d, d, d, 180*16, 90*16);
       break;
     }
 
     default: Q_UNREACHABLE();
+  }
+}
+
+
+
+void Render::drawArrow(int x, int y)
+{
+  int arrowIdx;
+  switch (mTxt(x, y).toLatin1())
+  {
+    case '>': arrowIdx = 0; break;
+    case '^': arrowIdx = 1; break;
+    case '<': arrowIdx = 2; break;
+    case 'v':
+    case 'V': arrowIdx = 3; break;
+    default:  Q_UNREACHABLE();
+  }
+
+  mPainter.drawPath(mArrows[arrowIdx].translated(point(x, y)));
+}
+
+
+
+void Render::findParagraphs()
+{
+  QList<Paragraph> active;
+  QString line;
+  int spaces = 0;
+  int lineX  = 0;
+
+  for (int y = 0; y < mTxt.height(); ++y)
+  {
+    for (int x = 0; x < mTxt.width(); ++x)
+    {
+      if (mGraph.node(x, y).kind() == Text)
+      {
+        auto ch  = mTxt(x, y);
+        bool spc = ch.isSpace();
+        spaces   = spc ? spaces + 1 : 0;
+
+        if (line.isEmpty())
+          lineX = x;
+
+        if (!spc || !line.isEmpty())
+          line.append(ch);
+
+        if (spaces <= 1)
+          continue;
+      }
+
+      if (line.isEmpty())
+        continue;
+
+      line.truncate(line.size() - spaces);
+      addLineToParagraphs(std::move(line), lineX, y);
+    }
+  }
+
+  mParagraphs.splice(mParagraphs.end(), mActives);
+}
+
+
+
+void Render::addLineToParagraphs(QString&& line, int x, int y)
+{
+  for (auto para = mActives.begin(); para != mActives.end(); )
+  {
+    if (y > para->bottom() + 1)
+    {
+      auto old = para++;
+      mParagraphs.splice(mParagraphs.end(), mActives, old);
+    }
+    else if (para->addLine(std::move(line), x, y))
+      return;
+    else
+      ++para;
+  }
+
+  mActives.emplace_back(std::move(line), x, y);
+}
+
+
+
+namespace {
+QRect alignedRect(Qt::Alignment alignment, int width, const QRect& rect)
+{
+  int newX;
+  switch (alignment)
+  {
+    case Qt::AlignLeft:    newX = rect.x(); break;
+    case Qt::AlignHCenter: newX = rect.x() + (rect.width() - width) / 2; break;
+    case Qt::AlignRight:   newX = rect.x() + rect.width() - width; break;
+    default: Q_UNREACHABLE();
+  }
+
+  return QRect{newX, rect.y(), width, rect.height()};
+}
+} // namespace
+
+
+
+void Render::drawParagraphs()
+{
+  QFontMetrics fm{mFont};
+
+  for (const auto& para: mParagraphs)
+  {
+    auto align = para.alignment();
+    auto pixwd = para.pixelWidth(fm);
+    auto orect = textRect(para.rect());
+    auto rect  = alignedRect(align, pixwd, orect);
+
+    for (int i = 0; i < para.size(); ++i)
+    {
+      auto& line = para[i];
+      int   ly   = rect.y() + i*mScaleY;
+
+      int lalign;
+      if (align == Qt::AlignLeft && !line[0].isSpace())
+        lalign = Qt::AlignLeft;
+      else if (align == Qt::AlignRight && line.size() == para.rect().width())
+        lalign = Qt::AlignRight;
+      else
+        lalign = Qt::AlignHCenter;
+
+      QRect lrect{rect.x(), ly, rect.width(), mScaleY};
+      mPainter.drawText(lrect, lalign, line); // FIXME: Remove leading spaces?
+    }
   }
 }

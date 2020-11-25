@@ -11,10 +11,11 @@
 class Char : public QChar
 {
   public:
-    constexpr Char() noexcept
-    = default;
+    constexpr Char(char ch) noexcept
+      : QChar{ch}
+    {}
 
-    Char(QChar ch) noexcept
+    constexpr Char(QChar ch) noexcept
       : QChar{ch}
     {}
 
