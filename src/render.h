@@ -1,46 +1,15 @@
 #pragma once
 #include "graph.h"
+#include "matrix.h"
 #include <list>
 #include <QImage>
 #include <QPainter>
+#include <QVector>
+class Paragraph;
 class TextImg;
 
 
 
-// FIXME: Write a matrix template, perhaps use std::valarray instead of QVector
-class DirectionImg
-{
-  public:
-    explicit DirectionImg(QSize sz);
-    void clear() noexcept;
-    Directions operator()(int x, int y) const;
-    Directions& operator()(int x, int y);
-
-  private:
-    QSize mSize;
-    QVector<Directions> mImg;
-};
-
-
-
-class Paragraph
-{
-  public:
-    using const_iterator = QVector<QString>::const_iterator;
-
-    Paragraph(QString&& line, int x, int y);
-    int size() const noexcept;
-    const QString& operator[](int index) const;
-    const QRect& rect() const noexcept;
-    int bottom() const noexcept;
-    bool addLine(QString&& line, int x, int y);
-    Qt::Alignment alignment() const noexcept;
-    int pixelWidth(const QFontMetrics& fm) const noexcept;
-
-  private:
-    QRect mRect;
-    QVector<QString> mLines;
-};
 
 using ParagraphList = std::list<Paragraph>;
 
@@ -50,6 +19,7 @@ class Render
 {
   public:
     Render(const Graph& graph, const TextImg& txt);
+    ~Render();
 
     QSize size() const noexcept;
 
@@ -76,7 +46,7 @@ class Render
     QPen mArrowPen;
     QBrush mBrush;
     QPainter mPainter;
-    DirectionImg mDone;
+    Matrix<Directions> mDone;
     QPolygonF mArrows[4];
     ParagraphList mParagraphs;
     ParagraphList mActives;

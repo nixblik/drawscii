@@ -6,66 +6,48 @@
 
 
 
-DirectionImg::DirectionImg(QSize sz)
-  : mSize{sz}
+class Paragraph
 {
-  mImg.resize(mSize.width() * mSize.height());
-}
+  public:
+    using const_iterator = QVector<QString>::const_iterator;
 
+    Paragraph(QString&& line, int x, int y)
+      : mRect{x, y, line.size(), 1}
+    { mLines.append(std::move(line)); }
 
+    int numberOfLines() const noexcept
+    { return mLines.size(); }
 
-inline Directions DirectionImg::operator()(int x, int y) const
-{
-  Q_ASSERT(x >= 0 && x < mSize.width() && y >= 0 && y < mSize.height());
-  return mImg[y * mSize.width() + x];
-}
+    const QString& operator[](int index) const
+    { return mLines[index]; }
 
+    const QRect& rect() const noexcept
+    { return mRect; }
 
+    int bottom() const noexcept
+    { return mRect.bottom(); }
 
-inline void DirectionImg::clear() noexcept
-{ mImg.fill(Directions{}); }
+    bool addLine(QString&& line, int x, int y);
+    Qt::Alignment alignment() const noexcept;
+    int pixelWidth(const QFontMetrics& fm) const noexcept;
 
-
-
-inline Directions& DirectionImg::operator()(int x, int y)
-{
-  Q_ASSERT(x >= 0 && x < mSize.width() && y >= 0 && y < mSize.height());
-  return mImg[y * mSize.width() + x];
-}
-
-
-
-Paragraph::Paragraph(QString&& line, int x, int y)
-  : mRect{x, y, line.size(), 1}
-{
-  mLines.append(std::move(line));
-}
-
-
-
-inline int Paragraph::size() const noexcept
-{ return mLines.size(); }
-
-inline const QString& Paragraph::operator[](int index) const
-{ return mLines[index]; }
-
-inline const QRect& Paragraph::rect() const noexcept
-{ return mRect; }
-
-inline int Paragraph::bottom() const noexcept
-{ return mRect.bottom(); }
+  private:
+    QRect mRect;
+    QVector<QString> mLines;
+};
 
 
 
 bool Paragraph::addLine(QString&& line, int x, int y)
 {
-  Q_ASSERT(y <= mRect.bottom() + 1);
+  assert(y <= mRect.bottom() + 1);
 
   int endx = x + line.size();
   if (endx <= mRect.left() || x > mRect.right() || y <= mRect.bottom())
     return false;
 
-  QString spaces{qAbs(x - mRect.x()), QChar{' '}};
+  static QString spaces;
+  spaces.resize(qAbs(x - mRect.x()), ' ');
 
   if (x > mRect.x())
     line.prepend(spaces);
@@ -134,10 +116,15 @@ Render::Render(const Graph& graph, const TextImg& txt)
     mDashedPen{Qt::black, 2, Qt::DashLine},
     mArrowPen{Qt::black, 2, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin},
     mBrush{Qt::black},
-    mDone{graph.size()}
+    mDone{graph.width(), graph.height()}
 {
   computeRenderParams();
 }
+
+
+
+Render::~Render()
+= default;
 
 
 
@@ -174,15 +161,15 @@ void Render::computeRenderParams()
 
 
 QSize Render::size() const noexcept
-{ return {mGraph.width() * mScaleX, mGraph.height() * mScaleY}; }
+{ return QSize{mGraph.width() * mScaleX, mGraph.height() * mScaleY}; }
 
 
 inline QPoint Render::point(int x, int y) const noexcept
-{ return {x*mScaleX + mDeltaX, y*mScaleY + mDeltaY}; }
+{ return QPoint{x*mScaleX + mDeltaX, y*mScaleY + mDeltaY}; }
 
 
 inline QRect Render::textRect(const QRect& r) const noexcept
-{ return {r.x()*mScaleX, r.y()*mScaleY, r.width()*mScaleX, r.height()*mScaleY}; }
+{ return QRect{r.x()*mScaleX, r.y()*mScaleY, r.width()*mScaleX, r.height()*mScaleY}; }
 
 
 
@@ -211,24 +198,22 @@ void Render::paint(QPaintDevice* dev)
 //
 void Render::drawLines()
 {
-  constexpr auto LowerRight = Right | DownRight | Down | DownLeft;
+  constexpr auto LowerRight = Right|DownRight|Down|DownLeft;
 
   mDone.clear();
   for (int y = 0; y < mGraph.height(); ++y)
   {
     for (int x = 0; x < mGraph.width(); ++x)
     {
-      auto node = mGraph.node(x, y);
+      auto node = mGraph(x,y);
       if (!node.isLine())
         continue;
 
       // If edges are left to be done...
-      if (node.edges() & ~mDone(x, y) & LowerRight)
-      {
-        for (Direction dir = Right; dir != Left; dir = dir.turnedRight())
-          if (node.hasEdge(dir) && !(mDone(x, y) & dir.flag()))
+      if (node.edges() & ~mDone(x,y) & LowerRight)
+        for (Direction dir = Right; dir != Left; dir = turnedRight45(dir))
+          if (node.hasEdge(dir) && !(mDone(x,y) & dir))
             drawLineFrom(x, y, dir);
-      }
 
       switch (node.kind())
       {
@@ -245,37 +230,32 @@ void Render::drawLines()
 
 void Render::drawLineFrom(int x0, int y0, Direction dir)
 {
-  auto rev = dir.opposite();
-  int  dx  = dir.dx();
-  int  dy  = dir.dy();
-  int  x   = x0 + dx;
-  int  y   = y0 + dy;
-
-  mDone(x0, y0) = mDone(x0, y0) | dir.flag();  // FIXME
-
+  auto revDir = opposite(dir);
+  int  dx     = deltaX(dir);
+  int  dy     = deltaY(dir);
+  int  x      = x0;
+  int  y      = y0;
   bool dashed = true;
-  for (;;) // FIXME: Loop can be done nicer
+  Node node   = mGraph(x,y);
+
+  while (node.edges() & ~mDone(x,y) & dir)
   {
-    mDone(x, y) = mDone(x, y) | rev.flag();  // FIXME
-    auto node   = mGraph.node(x, y);
+    mDone(x,y) |= dir;
+    x          += dx;
+    y          += dy;
+
+    mDone(x,y) |= revDir;
+    node        = mGraph(x,y);
     dashed     &= node.isDashed();
-
-    if (!(node.edges() & ~mDone(x, y) & dir.flag()))
-      break;
-
-    mDone(x, y) = mDone(x, y) | dir.flag();
-
-    x += dx;
-    y += dy;
   }
 
   auto p0 = point(x0, y0);
   auto p1 = point(x, y);
 
-  if (mGraph.node(x0, y0).kind() == Round)
+  if (mGraph(x0,y0).kind() == Round)
     p0 += QPoint{dx*mRadius, dy*mRadius};
 
-  if (mGraph.node(x, y).kind() == Round)
+  if (mGraph(x,y).kind() == Round)
     p1 -= QPoint{dx*mRadius, dy*mRadius};
 
   mPainter.setPen(dashed ? mDashedPen : mSolidPen);
@@ -289,9 +269,9 @@ void Render::drawRoundCorner(Node node, int x, int y)
   auto p = point(x, y);
   auto d = 2 * mRadius;
 
-  mPainter.setPen(mGraph.node(x, y).isDashed() ? mDashedPen : mSolidPen);
+  mPainter.setPen(mGraph(x,y).isDashed() ? mDashedPen : mSolidPen);
 
-  switch (mTxt(x, y).toLatin1())
+  switch (mTxt(x,y).toLatin1())
   {
     case '/': {
       if (node.hasEdge(Left))
@@ -318,13 +298,13 @@ void Render::drawRoundCorner(Node node, int x, int y)
 void Render::drawArrow(int x, int y)
 {
   int arrowIdx;
-  switch (mTxt(x, y).toLatin1())
+  switch (mTxt(x,y).toLatin1())
   {
     case '>': arrowIdx = 0; break;
-    case '^': arrowIdx = 3; break;
-    case '<': arrowIdx = 2; break;
     case 'v':
     case 'V': arrowIdx = 1; break;
+    case '<': arrowIdx = 2; break;
+    case '^': arrowIdx = 3; break;
     default:  Q_UNREACHABLE();
   }
 
@@ -342,13 +322,13 @@ void Render::findParagraphs()
   int spaces = 0;
   int lineX  = 0;
 
-  for (int y = 0; y < mTxt.height(); ++y)
+  for (int y = 0; y < mGraph.height(); ++y)
   {
-    for (int x = 0; x < mTxt.width(); ++x)
+    for (int x = 0; x < mGraph.width(); ++x)
     {
-      if (mGraph.node(x, y).kind() == Text)
+      if (mGraph(x,y).kind() == Text)
       {
-        auto ch  = mTxt(x, y);
+        auto ch  = mTxt(x,y);
         bool spc = ch.isSpace();
         spaces   = spc ? spaces + 1 : 0;
 
@@ -424,7 +404,7 @@ void Render::drawParagraphs()
     auto orect = textRect(para.rect());
     auto rect  = alignedRect(align, pixwd, orect);
 
-    for (int i = 0; i < para.size(); ++i)
+    for (int i = 0; i < para.numberOfLines(); ++i)
     {
       auto& line = para[i];
       int   ly   = rect.y() + i*mScaleY;

@@ -10,11 +10,11 @@ TextImg::TextImg() noexcept
 
 Char TextImg::operator()(int x, int y) const noexcept
 {
-  if (y < 0 || y >= height())
+  if (x < 0 || y < 0 || y >= height())
     return ' ';
 
   auto& line = mLines[y];
-  if (x < 0 || x >= line.size())
+  if (x >= line.size())
     return ' ';
 
   return line[x];
@@ -24,6 +24,9 @@ Char TextImg::operator()(int x, int y) const noexcept
 
 void TextImg::read(QTextStream& in)
 {
+  assert(mLines.isEmpty());
+  mLines.reserve(128);
+
   for (;;)
   {
     auto line = in.readLine();
@@ -31,6 +34,6 @@ void TextImg::read(QTextStream& in)
       break;
 
     mWidth = qMax(mWidth, line.size());
-    mLines.append(std::move(line));
+    mLines.push_back(std::move(line));
   }
 }

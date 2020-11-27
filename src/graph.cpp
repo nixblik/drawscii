@@ -3,79 +3,40 @@
 
 
 
-int Direction::dx() const noexcept
-{
-  switch (mDir)
-  {
-    case Up:
-    case Down:      return 0;
-    case DownLeft:
-    case Left:
-    case UpLeft:    return -1;
-    case UpRight:
-    case Right:
-    case DownRight: return +1;
-  }
+inline Node& Node::set(NodeKind kind) noexcept
+{ mKind = kind; return *this; }
 
-  Q_UNREACHABLE();
-}
+inline Node& Node::addEdge(Direction dir) noexcept
+{ mEdges |= dir; return *this; }
 
+inline Node& Node::addEdges(Directions dir) noexcept
+{ mEdges |= dir; return *this; }
 
-
-int Direction::dy() const noexcept
-{
-  switch (mDir)
-  {
-    case Right:
-    case Left:      return 0;
-    case UpLeft:
-    case Up:
-    case UpRight:   return -1;
-    case DownRight:
-    case Down:
-    case DownLeft:  return +1;
-  }
-
-  Q_UNREACHABLE();
-}
-
-
-
-inline void Node::set(NodeKind kind, Directions edges)
-{
-  mKind   = kind;
-  mEdges |= edges;
-}
-
-
-
-inline void Node::set(NodeKind kind, Direction edge)
-{ set(kind, edge.flag()); }
-
-
-inline void Node::setDashed()
+inline void Node::setDashed() noexcept
 { mDashed = true; }
 
 
 
 Graph Graph::from(const TextImg& txt)
 {
-  Graph gr{txt.size()};
+  Graph gr{txt.width(), txt.height()};
   gr.readFrom(txt);
   return gr;
 }
 
 
 
-Graph::Graph(const QSize& sz)
-  : mSize{sz}
-{
-  mNodes.resize(sz.width() * sz.height());
-}
+inline Graph::Graph(int width, int height)
+  : Matrix{width, height}
+{}
+
+
+inline Node& Graph::node(int x, int y) noexcept
+{ return operator()(x, y); }
 
 
 
-void Graph::readFrom(const TextImg& txt)
+inline void Graph::readFrom(const TextImg& txt)
 {
   pass1(txt);
   pass2(txt);
@@ -90,9 +51,9 @@ void Graph::readFrom(const TextImg& txt)
 //
 void Graph::pass1(const TextImg& txt)
 {
-  for (int y = 0; y < mSize.height(); ++y)
+  for (int y = 0; y < height(); ++y)
   {
-    for (int x = 0; x < mSize.width(); ++x)
+    for (int x = 0; x < width(); ++x)
     {
       switch (txt(x,y).toLatin1())
       {
@@ -144,13 +105,30 @@ void Graph::pass1(const TextImg& txt)
 
 
 
+inline void Graph::makeEdge(int x, int y, NodeKind from, Direction dir, NodeKind to)
+{
+  node(x, y).set(from).addEdge(dir);
+  node(x + deltaX(dir), y + deltaY(dir)).set(to).addEdge(opposite(dir));
+}
+
+
+
+inline void Graph::makeCorner(int x, int y, NodeKind from, Direction dir1, NodeKind to1, Direction dir2, NodeKind to2)
+{
+  node(x, y).set(from).addEdges(dir1|dir2);
+  node(x + deltaX(dir1), y + deltaY(dir1)).set(to1).addEdge(opposite(dir1));
+  node(x + deltaX(dir2), y + deltaY(dir2)).set(to2).addEdge(opposite(dir2));
+}
+
+
+
 // Second pass of graph construction from txt. Recursively makes adjacent
 // corner characters lines if at least one of them is a line already.
 //
 void Graph::pass2(const TextImg& txt)
 {
-  for (int y = 0; y < mSize.height(); ++y)
-    for (int x = 0; x < mSize.width(); ++x)
+  for (int y = 0; y < height(); ++y)
+    for (int x = 0; x < width(); ++x)
       if (txt(x,y) == '+' && node(x,y).isLine())
         findMoreCorners(txt, x, y);
 }
@@ -161,28 +139,28 @@ void Graph::findMoreCorners(const TextImg& txt, int x, int y)
 {
   if (txt(x-1,y) == '+')
   {
-    node(x,y).set(Line, Left);
+    node(x,y).set(Line).addEdge(Left);
     if (node(x-1,y).kind() == Text)
       findMoreCorners(txt, x-1, y);
   }
 
   if (txt(x+1,y) == '+')
   {
-    node(x,y).set(Line, Right);
+    node(x,y).set(Line).addEdge(Right);
     if (node(x+1,y).kind() == Text)
       findMoreCorners(txt, x+1, y);
   }
 
   if (txt(x,y-1) == '+')
   {
-    node(x,y).set(Line, Up);
+    node(x,y).set(Line).addEdge(Up);
     if (node(x,y-1).kind() == Text)
       findMoreCorners(txt, x, y-1);
   }
 
   if (txt(x,y+1) == '+')
   {
-    node(x,y).set(Line, Down);
+    node(x,y).set(Line).addEdge(Down);
     if (node(x,y+1).kind() == Text)
       findMoreCorners(txt, x, y+1);
   }
@@ -194,9 +172,9 @@ void Graph::findMoreCorners(const TextImg& txt, int x, int y)
 //
 void Graph::pass3(const TextImg& txt)
 {
-  for (int y = 0; y < mSize.height(); ++y)
+  for (int y = 0; y < height(); ++y)
   {
-    for (int x = 0; x < mSize.width(); ++x)
+    for (int x = 0; x < width(); ++x)
     {
       auto nd = node(x, y);
       if (!nd.isLine())
@@ -218,7 +196,7 @@ void Graph::spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0)
   auto& nd0 = node(x0, y0);
   nd0.setDashed();
 
-  for (int i = 0; i < 2; ++i, dir0 = dir0.opposite())
+  for (int i = 0; i < 2; ++i, dir0 = opposite(dir0))
   {
     Direction dir = dir0;
     if (!nd0.hasEdge(dir))
@@ -229,8 +207,8 @@ void Graph::spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0)
 
     for (;;)
     {
-      x += dir.dx();
-      y += dir.dy();
+      x += deltaX(dir);
+      y += deltaY(dir);
 
       auto& nd = node(x, y);
       if (nd.isDashed())
@@ -238,7 +216,7 @@ void Graph::spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0)
 
       nd.setDashed();
       if (nd.kind() == Round)
-        dir = walkRoundCorner(dir, x, y, txt(x,y));
+        dir = walkCorner(dir, x, y, txt(x,y));
       else if (nd.kind() == Arrow)
         break;
 
@@ -250,36 +228,19 @@ void Graph::spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0)
 
 
 
-Direction Graph::walkRoundCorner(Direction dir, int x, int y, QChar cornerCh) const noexcept
+Direction Graph::walkCorner(Direction dir, int x, int y, QChar cornerCh) const noexcept
 {
   Q_UNUSED(x); // Needed later when corners can lead to inclined lines
   Q_UNUSED(y);
 
-  bool horzDir = (dir == Left || dir == Right);
-  bool vertDir = (dir == Down || dir == Up);
+  bool horzDir = bool{(Left|Right) & dir};
+  bool vertDir = bool{(Up|Down) & dir};
 
   if ((horzDir && cornerCh == '/') || (vertDir && cornerCh == '\\'))
-    return dir.turnedLeft().turnedLeft();
+    return turnedLeft90(dir);
 
   if ((horzDir && cornerCh == '\\') || (vertDir && cornerCh == '/'))
-    return dir.turnedRight().turnedRight();
+    return turnedRight90(dir);
 
   Q_UNREACHABLE();
-}
-
-
-
-void Graph::makeEdge(int x, int y, NodeKind k, Direction dir2, NodeKind k2)
-{
-  node(x, y).set(k, dir2);
-  node(x + dir2.dx(), y + dir2.dy()).set(k2, dir2.opposite());
-}
-
-
-
-void Graph::makeCorner(int x, int y, NodeKind k1, Direction dir2, NodeKind k2, Direction dir3, NodeKind k3)
-{
-  node(x, y).set(k1, dir2|dir3);
-  node(x + dir2.dx(), y + dir2.dy()).set(k2, dir2.opposite());
-  node(x + dir3.dx(), y + dir3.dy()).set(k3, dir3.opposite());
 }

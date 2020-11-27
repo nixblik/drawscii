@@ -1,9 +1,9 @@
 #pragma once
-#include "common.h"
+#include "flags.h"
+#include "matrix.h"
+#include <QChar>
 #include <QSize>
-#include <QVector>
 class TextImg;
-class QFile;
 
 
 
@@ -12,7 +12,7 @@ enum NodeKind : quint8
 
 
 
-enum Directions : quint8
+enum Direction : quint8
 {
   Up         = 0x01,
   UpRight    = 0x02,
@@ -24,50 +24,32 @@ enum Directions : quint8
   UpLeft     = 0x80,
 };
 
-
-constexpr Directions operator|(Directions a, Directions b) noexcept
-{ return static_cast<Directions>(unsigned{a} | unsigned{b}); }
-
-
-
-class Direction
-{
-  public:
-    constexpr Direction(Directions dir) noexcept
-      : mDir{dir}
-    {}
-
-    constexpr Directions flag() const noexcept
-    { return mDir; }
-
-    constexpr Direction opposite() const noexcept
-    { return static_cast<Directions>(mDir <= DownRight ? mDir << 4 : mDir >> 4); }
-
-    constexpr Direction turnedRight() const noexcept
-    { return static_cast<Directions>(mDir == UpLeft ? Up : mDir << 1); }
-
-    constexpr Direction turnedLeft() const noexcept
-    { return static_cast<Directions>(mDir == Up ? UpLeft : mDir >> 1); }
-
-    int dx() const noexcept;
-    int dy() const noexcept;
-
-  private:
-    Directions mDir;
-};
+using Directions = Flags<Direction>;
 
 
 constexpr Directions operator|(Direction a, Direction b) noexcept
-{ return a.flag() | b.flag(); }
+{ return Directions{a} | Directions{b}; }
 
-constexpr bool operator!=(Direction a, Direction b) noexcept
-{ return a.flag() != b.flag(); }
+constexpr Direction opposite(Direction dir) noexcept
+{ return static_cast<Direction>(dir <= DownRight ? dir << 4 : dir >> 4); }
 
-constexpr bool operator!=(Direction a, Directions b) noexcept
-{ return a.flag() != b; }
+constexpr Direction turnedRight45(Direction dir) noexcept
+{ return static_cast<Direction>(dir == UpLeft ? Up : dir << 1); }
 
-constexpr bool operator==(Direction a, Directions b) noexcept
-{ return a.flag() == b; }
+constexpr Direction turnedRight90(Direction dir) noexcept
+{ return static_cast<Direction>(dir >= Left ? dir >> 6 : dir << 2); }
+
+constexpr Direction turnedLeft45(Direction dir) noexcept
+{ return static_cast<Direction>(dir == Up ? UpLeft : dir >> 1); }
+
+constexpr Direction turnedLeft90(Direction dir) noexcept
+{ return static_cast<Direction>(dir <= UpRight ? dir << 6 : dir >> 2); }
+
+constexpr int deltaX(Direction dir) noexcept
+{ return bool{(UpRight|Right|DownRight) & dir} - bool{(UpLeft|Left|DownLeft) & dir}; }
+
+constexpr int deltaY(Direction dir) noexcept
+{ return bool{(DownLeft|Down|DownRight) & dir} - bool{(UpLeft|Up|UpRight) & dir}; }
 
 
 
@@ -77,7 +59,7 @@ class Node
     constexpr Node() noexcept
       : mKind{Text},
         mDashed{false},
-        mEdges{0}
+        mEdges{}
     {}
 
     NodeKind kind() const noexcept
@@ -87,66 +69,44 @@ class Node
     { return mKind != Text; }
 
     bool hasEdge(Direction dir) const noexcept
-    { return mEdges & dir.flag(); }
+    { return bool{mEdges & dir}; }
 
-    quint8 edges() const noexcept
+    Directions edges() const noexcept
     { return mEdges; }
 
     bool isDashed() const noexcept
     { return mDashed; }
 
-    void set(NodeKind kind, Directions edges);
-    void set(NodeKind kind, Direction edge);
-    void setDashed();
+    Node& set(NodeKind kind) noexcept;
+    Node& addEdge(Direction dir) noexcept;
+    Node& addEdges(Directions dir) noexcept;
+    void setDashed() noexcept;
 
   private:
-    NodeKind mKind : 7;
-    bool   mDashed : 1;
-    quint8 mEdges; // FIXME: Write a flags template or use QFlags
+    NodeKind mKind;
+    bool mDashed;
+    Directions mEdges;
 };
 
 
 
-class Graph
+class Graph : public Matrix<Node>
 {
   public:
     static Graph from(const TextImg& txt);
 
-    int width() const noexcept
-    { return mSize.width(); }
-
-    int height() const noexcept
-    { return mSize.height(); }
-
-    QSize size() const noexcept
-    { return mSize; }
-
-    Node node(int x, int y) const
-    {
-      Q_ASSERT(x >= 0 && x < mSize.width() && y >= 0 && y < mSize.height());
-      return mNodes[y * mSize.width() + x];
-    }
-
-    Node& node(int x, int y)
-    {
-      Q_ASSERT(x >= 0 && x < mSize.width() && y >= 0 && y < mSize.height());
-      return mNodes[y * mSize.width() + x];
-    }
-
-    Direction walkRoundCorner(Direction dir, int x, int y, QChar cornerCh) const noexcept;
+    Direction walkCorner(Direction dir, int x, int y, QChar cornerCh) const noexcept;
 
   private:
-    explicit Graph(const QSize& sz);
+    Graph(int width, int height);
     void readFrom(const TextImg& txt);
     void pass1(const TextImg& txt);
     void pass2(const TextImg& txt);
     void pass3(const TextImg& txt);
     void findMoreCorners(const TextImg& txt, int x, int y);
-    void spreadDashing(const TextImg& txt, int x, int y, Direction dir);
-    void makeEdge(int x, int y, NodeKind k1, Direction dir, NodeKind k2);
-    void makeCorner(int x, int y, NodeKind k1, Direction dir2, NodeKind k2, Direction dir3, NodeKind k3);
-    void makeRevEdge(int x, int y, Direction dir, NodeKind k2);
-
-    QSize mSize;
-    QVector<Node> mNodes;
+    void spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0);
+    void makeEdge(int x, int y, NodeKind from, Direction dir, NodeKind to);
+    void makeCorner(int x, int y, NodeKind from, Direction dir1, NodeKind to1, Direction dir2, NodeKind to2);
+    void makeRevEdge(int x, int y, Directions dir, NodeKind k2);
+    Node& node(int x, int y) noexcept;
 };
