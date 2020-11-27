@@ -7,17 +7,18 @@ class TextImg;
 
 
 
-class Bitmap
+// FIXME: Write a matrix template, perhaps use std::valarray instead of QVector
+class DirectionImg
 {
   public:
-    explicit Bitmap(QSize sz);
-    bool get(int x, int y) const;
-    void clear();
-    void set(int x, int y, bool v = true);
+    explicit DirectionImg(QSize sz);
+    void clear() noexcept;
+    Directions operator()(int x, int y) const;
+    Directions& operator()(int x, int y);
 
   private:
     QSize mSize;
-    QVector<bool> mBits;
+    QVector<Directions> mImg;
 };
 
 
@@ -75,7 +76,7 @@ class Render
     QPen mArrowPen;
     QBrush mBrush;
     QPainter mPainter;
-    Bitmap mDone;
+    DirectionImg mDone;
     QPolygonF mArrows[4];
     ParagraphList mParagraphs;
     ParagraphList mActives;

@@ -6,31 +6,31 @@
 
 
 
-Bitmap::Bitmap(QSize sz)
+DirectionImg::DirectionImg(QSize sz)
   : mSize{sz}
 {
-  mBits.resize(mSize.width() * mSize.height());
+  mImg.resize(mSize.width() * mSize.height());
 }
 
 
 
-inline bool Bitmap::get(int x, int y) const
+inline Directions DirectionImg::operator()(int x, int y) const
 {
   Q_ASSERT(x >= 0 && x < mSize.width() && y >= 0 && y < mSize.height());
-  return mBits[y * mSize.width() + x];
+  return mImg[y * mSize.width() + x];
 }
 
 
 
-inline void Bitmap::clear()
-{ mBits.fill(false); }
+inline void DirectionImg::clear() noexcept
+{ mImg.fill(Directions{}); }
 
 
 
-inline void Bitmap::set(int x, int y, bool v)
+inline Directions& DirectionImg::operator()(int x, int y)
 {
   Q_ASSERT(x >= 0 && x < mSize.width() && y >= 0 && y < mSize.height());
-  mBits[y * mSize.width() + x] = v;
+  return mImg[y * mSize.width() + x];
 }
 
 
@@ -206,18 +206,14 @@ void Render::paint(QPaintDevice* dev)
 
 
 
-// FIXME: Rendering bug because I mark grid points done, not edges
-//
-//  +---\
-// -+---/
-//
 // FIXME: Follow round corners
 //        Dashed lines do not look good otherwise
 //
 void Render::drawLines()
 {
-  mDone.clear();
+  constexpr auto LowerRight = Right | DownRight | Down | DownLeft;
 
+  mDone.clear();
   for (int y = 0; y < mGraph.height(); ++y)
   {
     for (int x = 0; x < mGraph.width(); ++x)
@@ -226,11 +222,11 @@ void Render::drawLines()
       if (!node.isLine())
         continue;
 
-      if (!mDone.get(x, y))
+      // If edges are left to be done...
+      if (node.edges() & ~mDone(x, y) & LowerRight)
       {
-        mDone.set(x, y);
         for (Direction dir = Right; dir != Left; dir = dir.turnedRight())
-          if (node.hasEdge(dir))
+          if (node.hasEdge(dir) && !(mDone(x, y) & dir.flag()))
             drawLineFrom(x, y, dir);
       }
 
@@ -255,27 +251,23 @@ void Render::drawLineFrom(int x0, int y0, Direction dir)
   int  x   = x0 + dx;
   int  y   = y0 + dy;
 
-  if (mDone.get(x, y))
-    return;
+  mDone(x0, y0) = mDone(x0, y0) | dir.flag();  // FIXME
 
   bool dashed = true;
-  do
+  for (;;) // FIXME: Loop can be done nicer
   {
-    mDone.set(x, y);
+    mDone(x, y) = mDone(x, y) | rev.flag();  // FIXME
+    auto node   = mGraph.node(x, y);
+    dashed     &= node.isDashed();
 
-    auto node = mGraph.node(x, y);
-    for (Direction other = dir.turnedRight(); other != dir; other = other.turnedRight())
-      if (node.hasEdge(other) && other != rev)
-        drawLineFrom(x, y, other);
-
-    dashed &= node.isDashed();
-    if (!node.hasEdge(dir))
+    if (!(node.edges() & ~mDone(x, y) & dir.flag()))
       break;
+
+    mDone(x, y) = mDone(x, y) | dir.flag();
 
     x += dx;
     y += dy;
   }
-  while (!mDone.get(x, y));
 
   auto p0 = point(x0, y0);
   auto p1 = point(x, y);

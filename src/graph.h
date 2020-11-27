@@ -89,6 +89,9 @@ class Node
     bool hasEdge(Direction dir) const noexcept
     { return mEdges & dir.flag(); }
 
+    quint8 edges() const noexcept
+    { return mEdges; }
+
     bool isDashed() const noexcept
     { return mDashed; }
 
@@ -99,7 +102,7 @@ class Node
   private:
     NodeKind mKind : 7;
     bool   mDashed : 1;
-    quint8 mEdges;
+    quint8 mEdges; // FIXME: Write a flags template or use QFlags
 };
 
 
