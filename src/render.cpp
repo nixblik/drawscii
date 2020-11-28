@@ -112,8 +112,8 @@ int Paragraph::pixelWidth(const QFontMetrics& fm) const noexcept
 Render::Render(const Graph& graph, const TextImg& txt)
   : mTxt{txt},
     mGraph{graph},
-    mSolidPen{Qt::black, 2},
-    mDashedPen{Qt::black, 2, Qt::DashLine},
+    mSolidPen{Qt::black, 1},
+    mDashedPen{Qt::black, 1, Qt::DashLine}, // FIXME: Dash less often
     mArrowPen{Qt::black, 2, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin},
     mBrush{Qt::black},
     mDone{graph.width(), graph.height()}
@@ -140,7 +140,7 @@ void Render::computeRenderParams()
 {
   QFontMetrics fm{mFont};
   mScaleX = fm.width("w");
-  mScaleY = fm.height();
+  mScaleY = fm.height(); // FIXME: Compress this a little
   mDeltaX = mScaleX/2;
   mDeltaY = mScaleY/2;
   mRadius = (mScaleX + mScaleY) / 3;
@@ -180,7 +180,7 @@ void Render::paint(QPaintDevice* dev)
   mPainter.setRenderHint(QPainter::TextAntialiasing);
   mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
   mPainter.setFont(mFont);
-//mPainter.translate(0.5, 0.5);
+  mPainter.translate(0.5, 0.5); // FIXME: Line width could be parameter, then enable/disable accordingly
 
   mPainter.setBrush(Qt::black);
   drawLines();

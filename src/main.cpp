@@ -58,6 +58,10 @@ TextImg readTextImg(QString fname)
 
 
 
+// TODO: Fill closed shapes (what about empty ones?)
+// TODO: Draw shadows under closed shapes
+// TODO: Pandoc filter
+//
 int main(int argc, char* argv[])
 try
 {
@@ -70,7 +74,7 @@ try
   auto graph = Graph::from(txt);
 
   Render render{graph, txt};
-  render.setFont(QFont{"Open Sans"}); // FIXME font
+  render.setFont(QFont{"Open Sans"}); // FIXME Font as a parameter
 
   // FIXME: What if outputFile is empty?
   {
