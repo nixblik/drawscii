@@ -193,13 +193,8 @@ void Render::paint(QPaintDevice* dev)
 
 
 
-// FIXME: Follow round corners
-//        Dashed lines do not look good otherwise
-//
 void Render::drawLines()
 {
-  constexpr auto LowerRight = Right|DownRight|Down|DownLeft;
-
   mDone.clear();
   for (int y = 0; y < mGraph.height(); ++y)
   {
@@ -210,18 +205,13 @@ void Render::drawLines()
         continue;
 
       // If edges are left to be done...
-      if (node.edges() & ~mDone(x,y) & LowerRight)
+      if (node.edges() & ~mDone(x,y) & (Right|DownRight|Down|DownLeft))
         for (Direction dir = Right; dir != Left; dir = turnedRight45(dir))
-          if (node.hasEdge(dir) && !(mDone(x,y) & dir))
+          if (node.edges() & ~mDone(x,y) & dir)
             drawLineFrom(x, y, dir);
 
-      switch (node.kind())
-      {
-        case Text:
-        case Line:  break;
-        case Round: drawRoundCorner(node, x, y); break;
-        case Arrow: drawArrow(x, y); break;
-      }
+      if (node.kind() == Arrow)
+        drawArrow(x, y);
     }
   }
 }
@@ -238,6 +228,23 @@ void Render::drawLineFrom(int x0, int y0, Direction dir)
   bool dashed = true;
   Node node   = mGraph(x,y);
 
+  QPainterPath path;
+  if (node.kind() != Round)
+    path.moveTo(point(x, y));
+  else if (dir == Right)
+    path.moveTo(point(x, y) + QPoint{dx*mRadius, dy*mRadius});
+  else
+  {
+    // This is a rounded corner like so:  /---    or like so:  /---
+    // And it is not a closed shape       |       (future)    /
+    QPoint pt  = point(x, y);
+    QPoint r1  = QPoint{-mRadius, 0};
+    QPoint r2  = QPoint{dx*mRadius, dy*mRadius};
+
+    path.moveTo(pt - r1);
+    path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
+  }
+
   while (node.edges() & ~mDone(x,y) & dir)
   {
     mDone(x,y) |= dir;
@@ -247,50 +254,30 @@ void Render::drawLineFrom(int x0, int y0, Direction dir)
     mDone(x,y) |= revDir;
     node        = mGraph(x,y);
     dashed     &= node.isDashed();
+
+    if (node.kind() == Round)
+    {
+      // Rounded corner is drawn with a Bézier curve
+      QPoint pt = point(x, y);
+      QPoint r1 = QPoint{dx*mRadius, dy*mRadius};
+
+      dir    = mGraph.walkCorner(dir, x, y, mTxt(x,y));
+      revDir = opposite(dir);
+      dx     = deltaX(dir);
+      dy     = deltaY(dir);
+
+      QPoint r2 = QPoint{dx*mRadius, dy*mRadius};
+      path.lineTo(pt - r1);
+      path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
+    }
   }
 
-  auto p0 = point(x0, y0);
-  auto p1 = point(x, y);
-
-  if (mGraph(x0,y0).kind() == Round)
-    p0 += QPoint{dx*mRadius, dy*mRadius};
-
-  if (mGraph(x,y).kind() == Round)
-    p1 -= QPoint{dx*mRadius, dy*mRadius};
+  if (node.kind() != Round) // would only happen for closed shape
+    path.lineTo(point(x, y));
 
   mPainter.setPen(dashed ? mDashedPen : mSolidPen);
-  mPainter.drawLine(p0, p1);
-}
-
-
-
-void Render::drawRoundCorner(Node node, int x, int y)
-{
-  auto p = point(x, y);
-  auto d = 2 * mRadius;
-
-  mPainter.setPen(mGraph(x,y).isDashed() ? mDashedPen : mSolidPen);
-
-  switch (mTxt(x,y).toLatin1())
-  {
-    case '/': {
-      if (node.hasEdge(Left))
-        mPainter.drawArc(p.x()-d, p.y()-d, d, d, 270*16, 90*16);
-      if (node.hasEdge(Right))
-        mPainter.drawArc(p.x(), p.y(), d, d, 90*16, 90*16);
-      break;
-    }
-
-    case '\\': {
-      if (node.hasEdge(Left))
-        mPainter.drawArc(p.x()-d, p.y(), d, d, 0*16, 90*16);
-      if (node.hasEdge(Right))
-        mPainter.drawArc(p.x(), p.y()-d, d, d, 180*16, 90*16);
-      break;
-    }
-
-    default: Q_UNREACHABLE();
-  }
+  mPainter.setBrush(Qt::NoBrush);
+  mPainter.drawPath(path);
 }
 
 
