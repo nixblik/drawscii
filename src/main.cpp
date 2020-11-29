@@ -1,5 +1,6 @@
-#include "render.h"
 #include "graph.h"
+#include "outputfile.h"
+#include "render.h"
 #include "runtimeerror.h"
 #include "textimg.h"
 #include <iostream>
@@ -8,37 +9,82 @@
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QImage>
+#include <QImageWriter>
+#include <QSvgGenerator>
 
 
 
-namespace {
-QString inputFile;
-QString outputFile;
-} // namespace
-
-
-
-void processCmdLine(const QCoreApplication& app)
+struct CmdLineArgs
 {
+  QString inputFile;
+  QString outputFile;
+  QFont font;
+  QColor bg{Qt::white};
+  int lineWd{1};
+};
+
+
+
+CmdLineArgs processCmdLine(const QCoreApplication& app)
+{
+  // TODO: Rework command line names and descriptions. More application description.
   QCommandLineOption outputFileOpt{"o", "Set the name of the output file to write to.", "path"};
+  QCommandLineOption fontOpt{"font", "Set the font for drawing.", "font"};
+  QCommandLineOption fontSizeOpt{"font-size", "Set the font size for drawing.", "pixels"};
+  QCommandLineOption bgOpt{{"bg", "background"}, "Set the background color. The following notations are understood: #RGB, #RRGGBB, #AARRGGBB, transparent, and common color names.", "color"};
+  QCommandLineOption lineWdOpt{"line-width", "Set the width of lines.", "pixels"};
 
   QCommandLineParser parser;
   parser.setApplicationDescription("This program converts ASCII art drawings into proper graphics files.");
   parser.addHelpOption();
   parser.addVersionOption();
   parser.addOption(outputFileOpt);
+  parser.addOption(fontOpt);
+  parser.addOption(fontSizeOpt);
+  parser.addOption(bgOpt);
+  parser.addOption(lineWdOpt);
   parser.addPositionalArgument("input", "Input file");
   parser.process(app);
 
-  auto input = parser.positionalArguments();
-  if (input.isEmpty())
+  auto inputs = parser.positionalArguments();
+  if (inputs.isEmpty())
     throw std::runtime_error{"Missing input file"};
 
-  if (input.size() > 1)
+  if (inputs.size() > 1)
     throw std::runtime_error{"Too many input files"};
 
-  inputFile  = parser.positionalArguments().front();
-  outputFile = parser.value(outputFileOpt);
+  CmdLineArgs result;
+  result.inputFile  = inputs.first();
+  result.outputFile = parser.value(outputFileOpt);
+
+  if (result.outputFile.isEmpty())
+    throw std::runtime_error{"Missing output file"};
+
+  if (parser.isSet(fontOpt))
+    result.font.setFamily(parser.value(fontOpt));
+
+  try {
+    if (parser.isSet(fontSizeOpt))
+      result.font.setPixelSize(std::stoi(parser.value(fontSizeOpt).toUtf8().toStdString()));
+  }
+  catch (const std::exception&)
+  { throw std::runtime_error{"Invalid font size"}; }
+
+  if (parser.isSet(bgOpt))
+  {
+    result.bg.setNamedColor(parser.value(bgOpt));
+    if (!result.bg.isValid())
+      throw std::runtime_error{"Invalid background color"};
+  }
+
+  try {
+    if (parser.isSet(lineWdOpt))
+      result.lineWd = std::stoi(parser.value(lineWdOpt).toUtf8().toStdString());
+  }
+  catch (const std::exception&)
+  { throw std::runtime_error{"Invalid line width"}; }
+
+  return result;
 }
 
 
@@ -68,34 +114,44 @@ try
   QGuiApplication app{argc, argv};
   app.setApplicationName("draawsci");
   app.setApplicationVersion(VERSION);
-  processCmdLine(app);
 
-  auto txt   = readTextImg(inputFile);
+  auto args  = processCmdLine(app);
+  auto txt   = readTextImg(args.inputFile);
   auto graph = Graph::from(txt);
 
-  Render render{graph, txt};
-  render.setFont(QFont{"Open Sans"}); // FIXME Font as a parameter
+  Render render{graph, txt, args.lineWd};
+  render.setFont(args.font);
 
-  // FIXME: What if outputFile is empty?
+  auto suffix = QFileInfo{args.outputFile}.suffix().toLatin1();
+  if (suffix == "svg")
   {
-    QFile fd{outputFile};
-    if (!fd.open(QFile::WriteOnly|QFile::Truncate))
-      throw RuntimeError{outputFile, ": ", fd.errorString()};
-
-    QFileInfo fi{outputFile};
-    if (fi.suffix() == "svg")
-    {
-      // FIXME: paint svg using QSvgGenerator
-    }
-    else
-    {
-      QImage img{render.size(), QImage::Format_ARGB32_Premultiplied};
-      render.paint(&img);
-
-      if (!img.save(&fd))
-        throw RuntimeError{outputFile, ": Failed to write image file"};
-    }
+    OutputFile fd{args.outputFile};
+    QSvgGenerator svg;
+    svg.setOutputDevice(&fd);
+    svg.setSize(render.size());
+    // FIXME: Set resolution? Anyways, the size is being stored in mm, and that makes the svg become bigger than intended.
+    render.paint(&svg);
+    fd.done();
   }
+  else if (QImageWriter::supportedImageFormats().contains(suffix))
+  {
+    bool transparency = (args.bg.alpha() != 255);
+    if (transparency && suffix != "png")
+      throw std::runtime_error{"Must use PNG output format for transparent background"};
+
+    QImage img{render.size(), (transparency ? QImage::Format_ARGB32_Premultiplied : QImage::Format_RGB32)};
+    img.fill(args.bg);
+    render.paint(&img);
+
+    OutputFile fd{args.outputFile};
+    QImageWriter writer{&fd, suffix};
+    if (!writer.write(img))
+      throw RuntimeError{fd.fileName(), ": ", writer.errorString()};
+
+    fd.done();
+  }
+  else
+    throw RuntimeError{args.outputFile, ": Unknown graphics format"};
 
   return 0;
 }

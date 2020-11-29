@@ -12,6 +12,8 @@ Project
           "src/graph.h",
           "src/main.cpp",
           "src/matrix.h",
+          "src/outputfile.cpp",
+          "src/outputfile.h",
           "src/render.cpp",
           "src/render.h",
           "src/runtimeerror.cpp",
@@ -20,7 +22,7 @@ Project
           "src/textimg.h",
       ]
 
-    Depends { name:"Qt.gui" }
+    Depends { name:"Qt"; submodules:["gui","svg"] }
     consoleApplication: true
     cpp.cxxLanguageVersion: "c++11"
     cpp.defines: [

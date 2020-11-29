@@ -109,12 +109,11 @@ int Paragraph::pixelWidth(const QFontMetrics& fm) const noexcept
 
 
 
-Render::Render(const Graph& graph, const TextImg& txt)
+Render::Render(const Graph& graph, const TextImg& txt, int lineWd)
   : mTxt{txt},
     mGraph{graph},
-    mSolidPen{Qt::black, 1},
-    mDashedPen{Qt::black, 1, Qt::DashLine}, // FIXME: Dash less often
-    mArrowPen{Qt::black, 2, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin},
+    mSolidPen{Qt::black, static_cast<qreal>(lineWd)},
+    mDashedPen{Qt::black, static_cast<qreal>(lineWd), Qt::DashLine}, // FIXME: Dash less often
     mBrush{Qt::black},
     mDone{graph.width(), graph.height()}
 {
@@ -141,14 +140,15 @@ void Render::computeRenderParams()
   QFontMetrics fm{mFont};
   mScaleX = fm.width("w");
   mScaleY = fm.height(); // FIXME: Compress this a little
-  mDeltaX = mScaleX/2;
-  mDeltaY = mScaleY/2;
-  mRadius = (mScaleX + mScaleY) / 3;
+  mDeltaX = qRound(mScaleX * 0.5);
+  mDeltaY = qRound(mScaleY * 0.5);
+  mRadius = qRound((mScaleX + mScaleY) * 0.33333);
 
   auto& arrow = mArrows[0];
-  arrow.append(QPointF(mDeltaX, 0));
-  arrow.append(QPointF(-0.5 * mDeltaX, -0.4 * mDeltaY));
-  arrow.append(QPointF(-0.5 * mDeltaX,  0.4 * mDeltaY));
+  arrow.clear();
+  arrow.append(QPoint{mDeltaX, 0});
+  arrow.append(QPoint{qRound(-0.5 * mDeltaX), qRound(-0.4 * mDeltaY)});
+  arrow.append(QPoint{qRound(-0.5 * mDeltaX), qRound( 0.4 * mDeltaY)});
 
   for (int i = 1; i < 4; ++i)
   {
@@ -180,7 +180,9 @@ void Render::paint(QPaintDevice* dev)
   mPainter.setRenderHint(QPainter::TextAntialiasing);
   mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
   mPainter.setFont(mFont);
-  mPainter.translate(0.5, 0.5); // FIXME: Line width could be parameter, then enable/disable accordingly
+
+  if (mSolidPen.width() & 1)
+    mPainter.translate(0.5, 0.5);
 
   mPainter.setBrush(Qt::black);
   drawLines();
@@ -295,9 +297,9 @@ void Render::drawArrow(int x, int y)
     default:  Q_UNREACHABLE();
   }
 
-  mPainter.setPen(mArrowPen);
+  mPainter.setPen(Qt::NoPen);
   mPainter.setBrush(mBrush);
-  mPainter.drawPolygon(mArrows[arrowIdx].translated(point(x, y)), Qt::WindingFill);
+  mPainter.drawPolygon(mArrows[arrowIdx].translated(point(x, y)));
 }
 
 

@@ -18,11 +18,10 @@ using ParagraphList = std::list<Paragraph>;
 class Render
 {
   public:
-    Render(const Graph& graph, const TextImg& txt);
+    Render(const Graph& graph, const TextImg& txt, int lineWd);
     ~Render();
 
     QSize size() const noexcept;
-
     void setFont(const QFont& font);
     void paint(QPaintDevice* dev);
 
@@ -43,7 +42,6 @@ class Render
     QFont mFont;
     QPen mSolidPen;
     QPen mDashedPen;
-    QPen mArrowPen;
     QBrush mBrush;
     QPainter mPainter;
     Matrix<Directions> mDone;
