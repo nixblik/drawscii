@@ -113,10 +113,11 @@ Render::Render(const Graph& graph, const TextImg& txt, int lineWd)
   : mTxt{txt},
     mGraph{graph},
     mSolidPen{Qt::black, static_cast<qreal>(lineWd)},
-    mDashedPen{Qt::black, static_cast<qreal>(lineWd), Qt::DashLine}, // FIXME: Dash less often
+    mDashedPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine},
     mBrush{Qt::black},
     mDone{graph.width(), graph.height()}
 {
+  mDashedPen.setDashPattern({5, 3});
   computeRenderParams();
 }
 
@@ -139,7 +140,7 @@ void Render::computeRenderParams()
 {
   QFontMetrics fm{mFont};
   mScaleX = fm.width("w");
-  mScaleY = fm.height(); // FIXME: Compress this a little
+  mScaleY = fm.height(); // TODO: Provide compression for x and y axis, but this depends on the font, so be careful
   mDeltaX = qRound(mScaleX * 0.5);
   mDeltaY = qRound(mScaleY * 0.5);
   mRadius = qRound((mScaleX + mScaleY) * 0.33333);

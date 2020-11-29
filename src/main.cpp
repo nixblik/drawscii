@@ -27,7 +27,7 @@ struct CmdLineArgs
 
 CmdLineArgs processCmdLine(const QCoreApplication& app)
 {
-  // TODO: Rework command line names and descriptions. More application description.
+  // TODO: Rework command line names and descriptions. More application description, in particular output formats.
   QCommandLineOption outputFileOpt{"o", "Set the name of the output file to write to.", "path"};
   QCommandLineOption fontOpt{"font", "Set the font for drawing.", "font"};
   QCommandLineOption fontSizeOpt{"font-size", "Set the font size for drawing.", "pixels"};
@@ -107,6 +107,7 @@ TextImg readTextImg(QString fname)
 // TODO: Fill closed shapes (what about empty ones?)
 // TODO: Draw shadows under closed shapes
 // TODO: Pandoc filter
+// TODO: EPS output format
 //
 int main(int argc, char* argv[])
 try
@@ -128,8 +129,7 @@ try
     OutputFile fd{args.outputFile};
     QSvgGenerator svg;
     svg.setOutputDevice(&fd);
-    svg.setSize(render.size());
-    // FIXME: Set resolution? Anyways, the size is being stored in mm, and that makes the svg become bigger than intended.
+    svg.setViewBox(QRect{QPoint{0, 0}, render.size()});
     render.paint(&svg);
     fd.done();
   }
