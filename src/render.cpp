@@ -118,6 +118,7 @@ Render::Render(const Graph& graph, const TextImg& txt, int lineWd)
     mDone{graph.width(), graph.height()}
 {
   mDashedPen.setDashPattern({5, 3});
+  mShapePts.reserve(64);
   computeRenderParams();
 }
 
@@ -185,13 +186,128 @@ void Render::paint(QPaintDevice* dev)
   if (mSolidPen.width() & 1)
     mPainter.translate(0.5, 0.5);
 
-  mPainter.setBrush(Qt::black);
+  findShapes();
   drawLines();
 
   findParagraphs();
   drawParagraphs();
 
   mPainter.end();
+}
+
+
+
+void Render::findShapes()
+{
+  mDone.clear();
+  for (int y = 0; y < mGraph.height(); ++y)
+  {
+    for (int x = 0; x < mGraph.width(); ++x)
+    {
+      auto node = mGraph(x,y);
+      if (node.kind() != Line)
+        continue;
+
+      while (node.edges() & ~mDone(x,y) & ~Directions{UpLeft}) // FIXME: This is ugly, leaving out UpLeft
+        findShape(x, y);
+    }
+  }
+}
+
+
+
+void Render::findShape(int x0, int y0)
+{
+  mShapePts.clear();
+  mShapePts.push_back({x0, y0, DownRight, 0});
+
+  while (!mShapePts.empty())
+  {
+    auto& cur  = mShapePts.back();
+    auto  node = mGraph(cur.x, cur.y);
+    auto  dir  = findNextShapeDir(node, cur.x, cur.y, cur.dir);
+
+    if (!dir)
+    {
+      mShapePts.pop_back();
+      continue;
+    }
+
+    // Check that new point is ok for shape
+    mDone(cur.x, cur.y) |= dir;
+    int x = cur.x + deltaX(dir);
+    int y = cur.y + deltaY(dir);
+
+    if (mGraph(x,y).kind() == Arrow)
+    {
+      mDone(x,y) |= opposite(dir);
+      continue;
+    }
+
+    // Check whether new point closes the shape FIXME: We could continue until hitting x0/y0, then strip the doubles
+    for (auto i = mShapePts.begin(); i != mShapePts.end(); ++i)
+      if (i->x == x && i->y == y)
+        return registerShape(i, mShapePts.end(), cur.angle - i->angle);
+
+    // Continue shape-finding at new point
+    auto nangle = (mShapePts.size() == 1 ? 0 : angle(cur.dir, dir));
+    mShapePts.push_back({x, y, dir, cur.angle + nangle});
+  }
+}
+
+
+
+Direction Render::findNextShapeDir(Node node, int x, int y, Direction lastDir)
+{
+  if (node.kind() == Round)
+  {
+    auto dir = mGraph.walkCorner(lastDir, x, y, mTxt(x,y));
+    if (node.edges() & ~mDone(x,y) & dir)
+      return dir;
+  }
+  else if (node.kind() == Line)
+  {
+    auto rdir  = opposite(lastDir);
+    auto edges = node.edges() & ~mDone(x,y);
+
+    for (auto dir = turnedLeft45(rdir); dir != rdir; dir = turnedLeft45(dir))
+      if (edges & dir)
+        return dir;
+  }
+  else
+    Q_UNREACHABLE();
+
+  return Direction{};
+}
+
+
+
+void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle)
+{
+  qDebug("found shape at %i,%i angle=%i", begin->x, begin->y, angle);
+
+  QPolygon p; // FIXME: member for efficiency
+  p.reserve(end - begin);
+  for (auto i = begin; i != end; ++i)
+    p.append(point(i->x, i->y));
+
+  if (angle < 0)
+  {
+    mPainter.setBrush(Qt::yellow);
+    mPainter.setPen(Qt::NoPen);
+    mPainter.drawPolygon(p); // FIXME: Well actually we have to compute the rounded corners here, too
+  }
+  else
+  {
+    // FIXME: Drop shadow: draw all polygons in black in one qimage, slightly offset, then blur
+    mPainter.setBrush(Qt::NoBrush);
+    for (int i = 5; i >= 1; --i)
+    {
+      int col = 50 + i*40;
+      mPainter.setPen(qRgb(col, col, col));
+      mPainter.drawPolygon(p.translated(i, i));
+    }
+  }
 }
 
 
@@ -204,10 +320,6 @@ void Render::drawLines()
     for (int x = 0; x < mGraph.width(); ++x)
     {
       auto node = mGraph(x,y);
-      if (!node.isLine())
-        continue;
-
-      // If edges are left to be done...
       if (node.edges() & ~mDone(x,y) & (Right|DownRight|Down|DownLeft))
         for (Direction dir = Right; dir != Left; dir = turnedRight45(dir))
           if (node.edges() & ~mDone(x,y) & dir)
@@ -386,6 +498,7 @@ QRect alignedRect(Qt::Alignment alignment, int width, const QRect& rect)
 void Render::drawParagraphs()
 {
   QFontMetrics fm{mFont};
+  mPainter.setPen(mSolidPen);
 
   for (const auto& para: mParagraphs)
   {

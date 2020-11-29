@@ -51,6 +51,8 @@ constexpr int deltaX(Direction dir) noexcept
 constexpr int deltaY(Direction dir) noexcept
 { return bool{(DownLeft|Down|DownRight) & dir} - bool{(UpLeft|Up|UpRight) & dir}; }
 
+int angle(Direction d1, Direction d2) noexcept;
+
 
 
 class Node

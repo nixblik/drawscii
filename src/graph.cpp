@@ -3,6 +3,18 @@
 
 
 
+int angle(Direction d1, Direction d2) noexcept
+{
+  auto dir = opposite(d1);
+  for (int angle = -180; angle < 180; dir = turnedLeft45(dir), angle += 45)
+    if (dir == d2)
+      return angle;
+
+  Q_UNREACHABLE();
+}
+
+
+
 inline Node& Node::set(NodeKind kind) noexcept
 { mKind = kind; return *this; }
 

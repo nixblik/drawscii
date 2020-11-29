@@ -2,9 +2,9 @@
 #include "graph.h"
 #include "matrix.h"
 #include <list>
+#include <vector>
 #include <QImage>
 #include <QPainter>
-#include <QVector>
 class Paragraph;
 class TextImg;
 
@@ -26,7 +26,19 @@ class Render
     void paint(QPaintDevice* dev);
 
   private:
+    struct ShapePt {
+      int x;
+      int y;
+      Direction dir;
+      int angle;
+    };
+    using ShapePts = std::vector<ShapePt>;
+
     void computeRenderParams();
+    void findShapes();
+    void findShape(int x0, int y0);
+    Direction findNextShapeDir(Node node, int x, int y, Direction lastDir);
+    void registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle);
     void drawLines();
     void drawLineFrom(int x0, int y0, Direction dir);
     void drawRoundCorner(Node node, int x, int y);
@@ -44,6 +56,7 @@ class Render
     QPen mDashedPen;
     QBrush mBrush;
     QPainter mPainter;
+    ShapePts mShapePts;
     Matrix<Directions> mDone;
     QPolygonF mArrows[4];
     ParagraphList mParagraphs;
