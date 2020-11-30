@@ -115,7 +115,8 @@ Render::Render(const Graph& graph, const TextImg& txt, int lineWd)
     mSolidPen{Qt::black, static_cast<qreal>(lineWd)},
     mDashedPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine},
     mBrush{Qt::black},
-    mDone{graph.width(), graph.height()}
+    mDone{graph.width(), graph.height()},
+    mShadowsEnabled{false}
 {
   mDashedPen.setDashPattern({5, 3});
   mShapePts.reserve(64);
@@ -134,6 +135,11 @@ void Render::setFont(const QFont& font)
   mFont = font;
   computeRenderParams();
 }
+
+
+
+void Render::setShadows(bool enable)
+{ mShadowsEnabled = enable; }
 
 
 
@@ -187,6 +193,8 @@ void Render::paint(QPaintDevice* dev)
     mPainter.translate(0.5, 0.5);
 
   findShapes();
+  drawShadows();
+  drawShapes();
   drawLines();
 
   findParagraphs();
@@ -208,20 +216,30 @@ void Render::findShapes()
       if (node.kind() != Line)
         continue;
 
-      while (node.edges() & ~mDone(x,y) & ~Directions{UpLeft}) // FIXME: This is ugly, leaving out UpLeft
-        findShape(x, y);
+      if (node.edges() & ~mDone(x,y))
+        for (Direction dir = Left; dir != UpLeft; dir = turnedLeft45(dir))
+          if (node.edges() & ~mDone(x,y) & dir)
+            findShapeAt(x, y, dir);
     }
   }
 }
 
 
 
-void Render::findShape(int x0, int y0)
+void Render::findShapeAt(int x0, int y0, Direction dir0)
 {
-  mShapePts.clear();
-  mShapePts.push_back({x0, y0, DownRight, 0});
+  mDone(x0,y0) |= dir0;
+  int x = x0 + deltaX(dir0);
+  int y = y0 + deltaY(dir0);
 
-  while (!mShapePts.empty())
+  if (mGraph(x,y).kind() == Arrow)
+    return;
+
+  mShapePts.clear();
+  mShapePts.push_back({x0, y0, Direction{}, 0});
+  mShapePts.push_back({x, y, dir0, 0});
+
+  while (mShapePts.size() > 1)
   {
     auto& cur  = mShapePts.back();
     auto  node = mGraph(cur.x, cur.y);
@@ -235,23 +253,19 @@ void Render::findShape(int x0, int y0)
 
     // Check that new point is ok for shape
     mDone(cur.x, cur.y) |= dir;
-    int x = cur.x + deltaX(dir);
-    int y = cur.y + deltaY(dir);
+    x = cur.x + deltaX(dir);
+    y = cur.y + deltaY(dir);
 
     if (mGraph(x,y).kind() == Arrow)
-    {
-      mDone(x,y) |= opposite(dir);
       continue;
-    }
 
-    // Check whether new point closes the shape FIXME: We could continue until hitting x0/y0, then strip the doubles
+    // Check whether new point closes the shape FIXME: This is O(n²)
     for (auto i = mShapePts.begin(); i != mShapePts.end(); ++i)
       if (i->x == x && i->y == y)
         return registerShape(i, mShapePts.end(), cur.angle - i->angle);
 
     // Continue shape-finding at new point
-    auto nangle = (mShapePts.size() == 1 ? 0 : angle(cur.dir, dir));
-    mShapePts.push_back({x, y, dir, cur.angle + nangle});
+    mShapePts.push_back({x, y, dir, cur.angle + angle(cur.dir, dir)});
   }
 }
 
@@ -284,30 +298,62 @@ Direction Render::findNextShapeDir(Node node, int x, int y, Direction lastDir)
 
 void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle)
 {
-  qDebug("found shape at %i,%i angle=%i", begin->x, begin->y, angle);
+  if (!mShadowsEnabled && angle > 0)
+    return;
 
-  QPolygon p; // FIXME: member for efficiency
-  p.reserve(end - begin);
-  for (auto i = begin; i != end; ++i)
-    p.append(point(i->x, i->y));
+  QPainterPath path;
+  path.moveTo(point(begin->x, begin->y));
+
+  for (auto i = begin + 1; i != end; ++i)
+  {
+    auto node = mGraph(i->x, i->y);
+    if (node.kind() == Round)
+    {
+      QPoint pt = point(i->x, i->y);
+      QPoint r1 = QPoint{deltaX(i->dir), deltaY(i->dir)} * mRadius;
+      auto   d2 = mGraph.walkCorner(i->dir, i->x, i->y, mTxt(i->x, i->y));
+      QPoint r2 = QPoint{deltaX(d2), deltaY(d2)} * mRadius;
+
+      path.lineTo(pt - r1);
+      path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
+    }
+    else
+      path.lineTo(point(i->x, i->y));
+  }
 
   if (angle < 0)
-  {
-    mPainter.setBrush(Qt::yellow);
-    mPainter.setPen(Qt::NoPen);
-    mPainter.drawPolygon(p); // FIXME: Well actually we have to compute the rounded corners here, too
-  }
+    mShapes.emplace_back(std::move(path));
   else
-  {
-    // FIXME: Drop shadow: draw all polygons in black in one qimage, slightly offset, then blur
-    mPainter.setBrush(Qt::NoBrush);
-    for (int i = 5; i >= 1; --i)
-    {
-      int col = 50 + i*40;
-      mPainter.setPen(qRgb(col, col, col));
-      mPainter.drawPolygon(p.translated(i, i));
-    }
-  }
+    mShadows.emplace_back(std::move(path));
+}
+
+
+
+void Render::drawShadows()
+{
+  if (mShadows.empty())
+    return;
+
+  QPen pen{mSolidPen};
+  pen.setColor(Qt::darkGray);
+  mPainter.setPen(pen);
+  mPainter.setBrush(Qt::darkGray);
+
+  for (auto& shadow: mShadows)
+    mPainter.drawPath(shadow.translated(3, 3));
+}
+
+
+
+void Render::drawShapes()
+{
+  QPen pen{mSolidPen};
+  pen.setColor(Qt::white);
+  mPainter.setPen(pen);
+  mPainter.setBrush(Qt::white);
+
+  for (auto& shape: mShapes)
+    mPainter.drawPath(shape);
 }
 
 

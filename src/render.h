@@ -23,6 +23,7 @@ class Render
 
     QSize size() const noexcept;
     void setFont(const QFont& font);
+    void setShadows(bool enable);
     void paint(QPaintDevice* dev);
 
   private:
@@ -36,9 +37,11 @@ class Render
 
     void computeRenderParams();
     void findShapes();
-    void findShape(int x0, int y0);
+    void findShapeAt(int x0, int y0, Direction dir0);
     Direction findNextShapeDir(Node node, int x, int y, Direction lastDir);
     void registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle);
+    void drawShadows();
+    void drawShapes();
     void drawLines();
     void drawLineFrom(int x0, int y0, Direction dir);
     void drawRoundCorner(Node node, int x, int y);
@@ -59,8 +62,11 @@ class Render
     ShapePts mShapePts;
     Matrix<Directions> mDone;
     QPolygonF mArrows[4];
+    std::list<QPainterPath> mShadows;
+    std::list<QPainterPath> mShapes;
     ParagraphList mParagraphs;
     ParagraphList mActives;
+    bool mShadowsEnabled;
 
     int mScaleX;
     int mScaleY;

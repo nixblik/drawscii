@@ -21,6 +21,7 @@ struct CmdLineArgs
   QFont font;
   QColor bg{Qt::white};
   int lineWd{1};
+  int shadows{0};
 };
 
 
@@ -33,6 +34,8 @@ CmdLineArgs processCmdLine(const QCoreApplication& app)
   QCommandLineOption fontSizeOpt{"font-size", "Set the font size for drawing.", "pixels"};
   QCommandLineOption bgOpt{{"bg", "background"}, "Set the background color. The following notations are understood: #RGB, #RRGGBB, #AARRGGBB, transparent, and common color names.", "color"};
   QCommandLineOption lineWdOpt{"line-width", "Set the width of lines.", "pixels"};
+  QCommandLineOption shadowOpt{"shadows", "Enable shadows under closed shapes."};
+  QCommandLineOption noShadowOpt{"no-shadows", "Disable shadows under closed shapes."};
 
   QCommandLineParser parser;
   parser.setApplicationDescription("This program converts ASCII art drawings into proper graphics files.");
@@ -43,6 +46,8 @@ CmdLineArgs processCmdLine(const QCoreApplication& app)
   parser.addOption(fontSizeOpt);
   parser.addOption(bgOpt);
   parser.addOption(lineWdOpt);
+  parser.addOption(shadowOpt);
+  parser.addOption(noShadowOpt);
   parser.addPositionalArgument("input", "Input file");
   parser.process(app);
 
@@ -83,6 +88,11 @@ CmdLineArgs processCmdLine(const QCoreApplication& app)
   }
   catch (const std::exception&)
   { throw std::runtime_error{"Invalid line width"}; }
+
+  if (parser.isSet(shadowOpt))
+    result.shadows = 1;
+  else if (parser.isSet(noShadowOpt))
+    result.shadows = -1;
 
   return result;
 }
@@ -130,6 +140,7 @@ try
     QSvgGenerator svg;
     svg.setOutputDevice(&fd);
     svg.setViewBox(QRect{QPoint{0, 0}, render.size()});
+    render.setShadows(args.shadows > 0);
     render.paint(&svg);
     fd.done();
   }
@@ -141,6 +152,7 @@ try
 
     QImage img{render.size(), (transparency ? QImage::Format_ARGB32_Premultiplied : QImage::Format_RGB32)};
     img.fill(args.bg);
+    render.setShadows(args.shadows >= 0);
     render.paint(&img);
 
     OutputFile fd{args.outputFile};
