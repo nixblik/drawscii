@@ -23,6 +23,7 @@
 #include "textimg.h"
 #include <iostream>
 #include <QCommandLineParser>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -47,6 +48,7 @@ struct CmdLineArgs
   int shadows{0};
   int tabWidth{8};
   bool antialias{true};
+  bool overwrite{true};
 };
 
 
@@ -84,26 +86,40 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
   QCommandLineOption outputFileOpt{"o", "Sets the name of the output file to write to. The file type is determined from the file extension.", "path"};
   QCommandLineOption shadowOpt{"shadows", "Enables drawing drop shadows under closed shapes."};
   QCommandLineOption noShadowOpt{{"S", "no-shadows"}, "Disables drawing drop shadows under closed shapes."};
-  QCommandLineOption tabsOpt{{"t", "--tabs"}, "Sets the tab width for the input file.", "spaces"};
+  QCommandLineOption tabsOpt{{"t", "tabs"}, "Sets the tab width for the input file.", "spaces"};
 
   // Ditaa compatibility mode options
   QCommandLineOption debugOpt{{"d", "debug"}, "Does nothing. Provided for ditaa command-line compatibility."};
   QCommandLineOption noSepOpt{{"E", "no-separation"}, "Does nothing. Provided for ditaa command-line compatibility."};
+  QCommandLineOption helpOpt{"help", "Displays this help."};
   QCommandLineOption htmlOpt{{"h", "html"}, "Does nothing. Provided for ditaa command-line compatibility."};
   QCommandLineOption roundOpt{{"r", "round-corners"}, "Does nothing. Provided for ditaa command-line compatibility."};
   QCommandLineOption scaleOpt{{"s", "scale"}, "Does nothing. Provided for ditaa command-line compatibility.", "scale"};
   QCommandLineOption transpOpt{{"T", "transparent"}, "Causes the diagram to be rendered on a transparent background. Overrides --background."};
   QCommandLineOption fixedSlopeOpt{{"W", "fixed-slope"}, "Does nothing. Provided for ditaa command-line compatibility."};
+  QCommandLineOption verboseOpt{{"v", "verbose"}, "Does nothing. Provided for ditaa command-line compatibility."};
 
   if (mode == Mode::Ditaa)
   {
     antialiasOpt  = QCommandLineOption{{"A", "no-antialias"}, "Disables anti-aliasing."};
-    backgroundOpt = QCommandLineOption{{"b", "background"}, "Sets the background color for the output image. The following notations are understood: RRGGBB, AARRGGBB."};
+    backgroundOpt = QCommandLineOption{{"b", "background"}, "Sets the background color for the output image. The following notations are understood: RRGGBB, AARRGGBB.", "color"};
     outputFileOpt = QCommandLineOption{{"o", "overwrite"}, "Enables overwriting the output file if it already exists."};
   }
 
+  auto formats = QImageWriter::supportedImageFormats();
+  formats.removeOne("cur");
+  formats.removeOne("ico");
+  formats << "svg";
+  std::sort(formats.begin(), formats.end());
+
   QCommandLineParser parser;
-  parser.setApplicationDescription("This program converts ASCII art drawings into proper graphics files.");
+  parser.setApplicationDescription(QStringLiteral(
+    "\nThis program converts ASCII art drawings into proper graphics files. "
+    "Special characters in the input file (like -, |, /, \\ and +) are "
+    "recognized and rendered as lines. There are more features for drawing "
+    "dashed lines, filling shapes and setting text.\n\n"
+    "The format of the output image is determined from its suffix. The "
+    "following formats are supported: %1.").arg(QString::fromLatin1(formats.join(", "))));
 
   switch (mode)
   {
@@ -125,24 +141,27 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
       break;
 
     case Mode::Ditaa:
+      parser.setApplicationDescription(parser.applicationDescription() + "\n\nThis is Draawsci running in Ditaa compatibility mode.");
       parser.addOption(antialiasOpt);
       parser.addOption(backgroundOpt);
       parser.addOption(debugOpt);
       parser.addOption(noSepOpt);
       parser.addOption(encodingOpt);
       parser.addOption(htmlOpt);
-      parser.addHelpOption();
+      parser.addOption(helpOpt);
       parser.addOption(outputFileOpt);
       parser.addOption(roundOpt);
       parser.addOption(noShadowOpt);
       parser.addOption(scaleOpt);
       parser.addOption(transpOpt);
       parser.addOption(tabsOpt);
-      parser.addVersionOption();
+      parser.addOption(verboseOpt);
       parser.addOption(fixedSlopeOpt);
       parser.addPositionalArgument("input", "Input file that contains the drawing.");
-      parser.addPositionalArgument("output", "Output file for writing the result to. The file type is determined from the file extension.");
+      parser.addPositionalArgument("output", "Output file for writing the result to. The file type is determined from the file extension.", "[output]");
       parser.process(app);
+      if (parser.isSet(helpOpt))
+        parser.showHelp();
       break;
   }
 
@@ -179,9 +198,6 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
 
     case Mode::Ditaa:
     {
-      if (posArgs.size() < 2)
-        throw std::runtime_error{"Missing output file"};
-
       if (posArgs.size() > 2)
         throw std::runtime_error{"Too many file arguments"};
 
@@ -191,10 +207,18 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
       if (parser.isSet(transpOpt))
         result.bg = Qt::transparent;
 
-      result.antialias  = !parser.isSet(antialiasOpt);
-      result.shadows    = (parser.isSet(noShadowOpt) ? -1 : 1);
-      result.inputFile  = posArgs[0];
-      result.outputFile = posArgs[1];
+      result.antialias = !parser.isSet(antialiasOpt);
+      result.shadows   = (parser.isSet(noShadowOpt) ? -1 : 1);
+      result.overwrite = parser.isSet(outputFileOpt);
+      result.inputFile = posArgs[0];
+
+      if (posArgs.size() >= 2)
+        result.outputFile = posArgs[1];
+      else
+      {
+        QFileInfo fi{result.inputFile};
+        result.outputFile = fi.dir().filePath(fi.completeBaseName() + ".png");
+      }
       break;
     }
   }
@@ -235,7 +259,6 @@ TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
 // TODO: Blur shadows under closed shapes
 // TODO: Pandoc filter
 // TODO: EPS output format
-// TODO: ditaa compatibility mode
 //
 int main(int argc, char* argv[])
 try
@@ -253,7 +276,17 @@ try
   Render render{graph, txt, args.font, args.lineWd};
   render.apply(hints);
 
-  auto suffix = QFileInfo{args.outputFile}.suffix().toLatin1();
+  QFileInfo outputInfo{args.outputFile};
+  if (!args.overwrite && outputInfo.exists())
+    throw RuntimeError{args.outputFile, ": File already exists and will not be overwritten"};
+
+  if (mode == Mode::Ditaa)
+  {
+    std::cout << "Reading file: " << qPrintable(args.inputFile) << '\n';
+    std::cout << "Rendering to file: " << qPrintable(outputInfo.absoluteFilePath()) << std::endl;
+  }
+
+  auto suffix = outputInfo.suffix().toLatin1();
   if (suffix == "svg")
   {
     OutputFile fd{args.outputFile};
