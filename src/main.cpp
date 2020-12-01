@@ -256,7 +256,6 @@ TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
 
 
 
-// TODO: Blur shadows under closed shapes
 // TODO: Pandoc filter
 // TODO: EPS output format
 //
@@ -293,8 +292,10 @@ try
     QSvgGenerator svg;
     svg.setOutputDevice(&fd);
     svg.setViewBox(QRect{QPoint{0, 0}, render.size()});
-    render.setShadows(args.shadows > 0);
+
+    render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
     render.paint(&svg);
+
     fd.done();
   }
   else if (QImageWriter::supportedImageFormats().contains(suffix))
@@ -305,7 +306,8 @@ try
 
     QImage img{render.size(), (transparency ? QImage::Format_ARGB32_Premultiplied : QImage::Format_RGB32)};
     img.fill(args.bg);
-    render.setShadows(args.shadows >= 0);
+
+    render.setShadows(args.shadows >= 0 ? Shadow::Blurred : Shadow::None);
     render.setAntialias(args.antialias);
     render.paint(&img);
 

@@ -28,6 +28,11 @@ class TextImg;
 
 
 
+enum class Shadow
+{ None, Simple, Blurred };
+
+
+
 class Render
 {
   public:
@@ -35,7 +40,7 @@ class Render
     ~Render();
 
     QSize size() const noexcept;
-    void setShadows(bool enable);
+    void setShadows(Shadow mode);
     void setAntialias(bool enable);
     void apply(const Hints& hints);
     void paint(QPaintDevice* dev);
@@ -83,7 +88,7 @@ class Render
     ShapeList mShapes;
     ParagraphList mParagraphs;
     ParagraphList mActives;
-    bool mShadowsEnabled;
+    Shadow mShadowMode;
     bool mAntialias;
 
     int mScaleX;
@@ -91,4 +96,5 @@ class Render
     int mDeltaX;
     int mDeltaY;
     int mRadius;
+    int mShadowDelta;
 };

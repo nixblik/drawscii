@@ -20,6 +20,8 @@ import qbs
 QtApplication {
   name: "draawsci"
   files: [
+        "blur.cpp",
+        "blur.h",
         "common.h",
         "flags.h",
         "graph.cpp",

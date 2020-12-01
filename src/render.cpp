@@ -16,6 +16,7 @@
     along with Draawsci.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "render.h"
+#include "blur.h"
 #include "graph.h"
 #include "hints.h"
 #include "textimg.h"
@@ -149,7 +150,7 @@ Render::Render(const Graph& graph, const TextImg& txt, const QFont& font, int li
     mDashedPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine},
     mBrush{Qt::black},
     mDone{graph.width(), graph.height()},
-    mShadowsEnabled{false},
+    mShadowMode{Shadow::None},
     mAntialias{true}
 {
   mDashedPen.setDashPattern({5, 3});
@@ -167,8 +168,8 @@ Render::~Render()
 
 
 
-void Render::setShadows(bool enable)
-{ mShadowsEnabled = enable; }
+void Render::setShadows(Shadow mode)
+{ mShadowMode = mode; }
 
 
 void Render::setAntialias(bool enable)
@@ -184,6 +185,7 @@ void Render::computeRenderParams()
   mDeltaX = qRound(mScaleX * 0.5);
   mDeltaY = qRound(mScaleY * 0.5);
   mRadius = qRound((mScaleX + mScaleY) * 0.33333);
+  mShadowDelta = 2;
 
   auto& arrow = mArrows[0];
   arrow.clear();
@@ -202,7 +204,7 @@ void Render::computeRenderParams()
 
 
 QSize Render::size() const noexcept
-{ return QSize{mGraph.width() * mScaleX, mGraph.height() * mScaleY}; }
+{ return QSize{mGraph.width() * mScaleX + mShadowDelta, mGraph.height() * mScaleY + mShadowDelta}; }
 
 
 inline QPoint Render::point(int x, int y) const noexcept
@@ -214,8 +216,8 @@ inline QRect Render::textRect(const QRect& r) const noexcept
 
 
 
-// FIXME: Some shapes are not found, like art15.txt shadow
-// FIXME: Are dashed shapes to have a shadow?
+// FIXME: Some shapes are not found, like art15.txt shadow. That's because the whole shape is wasted on the first intersection point.
+// FIXME: Are dashed shapes to have a shadow? Looks strange
 void Render::findShapes()
 {
   mDone.clear();
@@ -332,7 +334,7 @@ void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_itera
   if (angle < 0)
     mShapes.emplace_back(std::move(path));
   else
-    mShadows.emplace_back(path.translated(3, 3));
+    mShadows.emplace_back(path.translated(mShadowDelta, mShadowDelta));
 }
 
 
@@ -426,6 +428,16 @@ void Render::applyColor(Shape& shape, const QColor& color)
 
 void Render::paint(QPaintDevice* dev)
 {
+  QImage shadowImg;
+  if (mShadowMode == Shadow::Blurred)
+  {
+    shadowImg = QImage{size(), QImage::Format_Alpha8};
+    shadowImg.fill(Qt::transparent);
+    mPainter.begin(&shadowImg);
+    drawShapes(mShadows, Qt::black);
+    mPainter.end();
+  }
+
   mPainter.begin(dev);
   mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
   mPainter.setFont(mFont);
@@ -439,8 +451,20 @@ void Render::paint(QPaintDevice* dev)
   if (mSolidPen.width() & 1)
     mPainter.translate(0.5, 0.5);
 
-  if (mShadowsEnabled)
-    drawShapes(mShadows, Qt::darkGray);
+  switch (mShadowMode)
+  {
+    case Shadow::None:
+      break;
+
+    case Shadow::Simple:
+      drawShapes(mShadows, Qt::lightGray);
+      break;
+
+    case Shadow::Blurred:
+      blurImage(shadowImg, mShadowDelta);
+      mPainter.drawImage(0, 0, filledImage(Qt::darkGray, shadowImg));
+      break;
+  }
 
   drawShapes(mShapes, Qt::white);
   drawLines();
