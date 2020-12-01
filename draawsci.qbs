@@ -10,6 +10,8 @@ Project
           "src/flags.h",
           "src/graph.cpp",
           "src/graph.h",
+          "src/hints.cpp",
+          "src/hints.h",
           "src/main.cpp",
           "src/matrix.h",
           "src/outputfile.cpp",

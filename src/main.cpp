@@ -1,4 +1,5 @@
 #include "graph.h"
+#include "hints.h"
 #include "outputfile.h"
 #include "render.h"
 #include "runtimeerror.h"
@@ -114,8 +115,7 @@ TextImg readTextImg(QString fname)
 
 
 
-// TODO: Fill closed shapes (what about empty ones?)
-// TODO: Draw shadows under closed shapes
+// TODO: Blur shadows under closed shapes
 // TODO: Pandoc filter
 // TODO: EPS output format
 //
@@ -129,9 +129,10 @@ try
   auto args  = processCmdLine(app);
   auto txt   = readTextImg(args.inputFile);
   auto graph = Graph::from(txt);
+  auto hints = Hints::from(txt, graph);
 
-  Render render{graph, txt, args.lineWd};
-  render.setFont(args.font);
+  Render render{graph, txt, args.font, args.lineWd};
+  render.apply(hints);
 
   auto suffix = QFileInfo{args.outputFile}.suffix().toLatin1();
   if (suffix == "svg")

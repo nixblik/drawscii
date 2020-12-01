@@ -1,5 +1,6 @@
 #include "render.h"
 #include "graph.h"
+#include "hints.h"
 #include "textimg.h"
 #include <QImage>
 #include <QPainter>
@@ -30,6 +31,8 @@ class Paragraph
     bool addLine(QString&& line, int x, int y);
     Qt::Alignment alignment() const noexcept;
     int pixelWidth(const QFontMetrics& fm) const noexcept;
+
+    QColor color;
 
   private:
     QRect mRect;
@@ -109,9 +112,22 @@ int Paragraph::pixelWidth(const QFontMetrics& fm) const noexcept
 
 
 
-Render::Render(const Graph& graph, const TextImg& txt, int lineWd)
+struct Shape
+{
+  explicit Shape(QPainterPath p)
+    : path{std::move(p)}
+  {}
+
+  QPainterPath path;
+  QColor bg;
+};
+
+
+
+Render::Render(const Graph& graph, const TextImg& txt, const QFont& font, int lineWd)
   : mTxt{txt},
     mGraph{graph},
+    mFont{font},
     mSolidPen{Qt::black, static_cast<qreal>(lineWd)},
     mDashedPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine},
     mBrush{Qt::black},
@@ -120,21 +136,16 @@ Render::Render(const Graph& graph, const TextImg& txt, int lineWd)
 {
   mDashedPen.setDashPattern({5, 3});
   mShapePts.reserve(64);
+
   computeRenderParams();
+  findShapes();
+  findParagraphs();
 }
 
 
 
 Render::~Render()
 = default;
-
-
-
-void Render::setFont(const QFont& font)
-{
-  mFont = font;
-  computeRenderParams();
-}
 
 
 
@@ -181,30 +192,8 @@ inline QRect Render::textRect(const QRect& r) const noexcept
 
 
 
-void Render::paint(QPaintDevice* dev)
-{
-  mPainter.begin(dev);
-  mPainter.setRenderHints(QPainter::Antialiasing|QPainter::HighQualityAntialiasing);
-  mPainter.setRenderHint(QPainter::TextAntialiasing);
-  mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
-  mPainter.setFont(mFont);
-
-  if (mSolidPen.width() & 1)
-    mPainter.translate(0.5, 0.5);
-
-  findShapes();
-  drawShadows();
-  drawShapes();
-  drawLines();
-
-  findParagraphs();
-  drawParagraphs();
-
-  mPainter.end();
-}
-
-
-
+// FIXME: Some shapes are not found, like art15.txt shadow
+// FIXME: Are dashed shapes to have a shadow?
 void Render::findShapes()
 {
   mDone.clear();
@@ -259,7 +248,7 @@ void Render::findShapeAt(int x0, int y0, Direction dir0)
     if (mGraph(x,y).kind() == Arrow)
       continue;
 
-    // Check whether new point closes the shape FIXME: This is O(n²)
+    // Check whether new point closes the shape TODO: This is O(n²)
     for (auto i = mShapePts.begin(); i != mShapePts.end(); ++i)
       if (i->x == x && i->y == y)
         return registerShape(i, mShapePts.end(), cur.angle - i->angle);
@@ -298,9 +287,6 @@ Direction Render::findNextShapeDir(Node node, int x, int y, Direction lastDir)
 
 void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle)
 {
-  if (!mShadowsEnabled && angle > 0)
-    return;
-
   QPainterPath path;
   path.moveTo(point(begin->x, begin->y));
 
@@ -324,36 +310,132 @@ void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_itera
   if (angle < 0)
     mShapes.emplace_back(std::move(path));
   else
-    mShadows.emplace_back(std::move(path));
+    mShadows.emplace_back(path.translated(3, 3));
 }
 
 
 
-void Render::drawShadows()
+void Render::findParagraphs()
 {
-  if (mShadows.empty())
-    return;
+  QList<Paragraph> active;
+  QString line;
+  int spaces = 0;
+  int lineX  = 0;
 
-  QPen pen{mSolidPen};
-  pen.setColor(Qt::darkGray);
-  mPainter.setPen(pen);
-  mPainter.setBrush(Qt::darkGray);
+  for (int y = 0; y < mGraph.height(); ++y)
+  {
+    for (int x = 0; x < mGraph.width(); ++x)
+    {
+      if (mGraph(x,y).kind() == Text)
+      {
+        auto ch  = mTxt(x,y);
+        bool spc = ch.isSpace();
+        spaces   = spc ? spaces + 1 : 0;
 
-  for (auto& shadow: mShadows)
-    mPainter.drawPath(shadow.translated(3, 3));
+        if (line.isEmpty())
+          lineX = x;
+
+        if (!spc || !line.isEmpty())
+          line.append(ch);
+
+        if (spaces <= 1 && x + 1 < mTxt.width())
+          continue;
+      }
+
+      if (line.isEmpty())
+        continue;
+
+      line.truncate(line.size() - spaces);
+      addLineToParagraphs(std::move(line), lineX, y);
+    }
+  }
+
+  mParagraphs.splice(mParagraphs.end(), mActives);
 }
 
 
 
-void Render::drawShapes()
+void Render::addLineToParagraphs(QString&& line, int x, int y)
+{
+  for (auto para = mActives.begin(); para != mActives.end(); )
+  {
+    if (y > para->bottom() + 1)
+    {
+      auto old = para++;
+      mParagraphs.splice(mParagraphs.end(), mActives, old);
+    }
+    else if (para->addLine(std::move(line), x, y))
+      return;
+    else
+      ++para;
+  }
+
+  mActives.emplace_back(std::move(line), x, y);
+}
+
+
+
+void Render::apply(const Hints& hints)
+{
+  for (auto& hint: hints)
+  {
+    auto hintPt = point(hint.x, hint.y);
+    if (hint.color.isValid())
+    {
+      for (auto i = mShapes.rbegin(); i != mShapes.rend(); ++i)
+        if (i->path.contains(hintPt))
+        { applyColor(*i, hint.color); break; }
+    }
+  }
+}
+
+
+
+void Render::applyColor(Shape& shape, const QColor& color)
+{
+  shape.bg = color;
+
+  for (auto& para: mParagraphs)
+    if (shape.path.contains(point(para.rect().left(), para.rect().top()))) // FIXME: Add point functions and Point class
+      para.color = color.lightness() < 100 ? Qt::white : Qt::black;
+}
+
+
+
+void Render::paint(QPaintDevice* dev)
+{
+  mPainter.begin(dev);
+  mPainter.setRenderHints(QPainter::Antialiasing|QPainter::HighQualityAntialiasing);
+  mPainter.setRenderHint(QPainter::TextAntialiasing);
+  mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
+  mPainter.setFont(mFont);
+
+  if (mSolidPen.width() & 1)
+    mPainter.translate(0.5, 0.5);
+
+  if (mShadowsEnabled)
+    drawShapes(mShadows, Qt::darkGray);
+
+  drawShapes(mShapes, Qt::white);
+  drawLines();
+  drawParagraphs();
+
+  mPainter.end();
+}
+
+
+
+void Render::drawShapes(const ShapeList& shapes, const QColor& defaultColor)
 {
   QPen pen{mSolidPen};
-  pen.setColor(Qt::white);
-  mPainter.setPen(pen);
-  mPainter.setBrush(Qt::white);
-
-  for (auto& shape: mShapes)
-    mPainter.drawPath(shape);
+  for (auto& shape: shapes)
+  {
+    auto color = shape.bg.isValid() ? shape.bg : defaultColor;
+    pen.setColor(color);
+    mPainter.setPen(pen);
+    mPainter.setBrush(color);
+    mPainter.drawPath(shape.path);
+  }
 }
 
 
@@ -463,66 +545,6 @@ void Render::drawArrow(int x, int y)
 
 
 
-void Render::findParagraphs()
-{
-  QList<Paragraph> active;
-  QString line;
-  int spaces = 0;
-  int lineX  = 0;
-
-  for (int y = 0; y < mGraph.height(); ++y)
-  {
-    for (int x = 0; x < mGraph.width(); ++x)
-    {
-      if (mGraph(x,y).kind() == Text)
-      {
-        auto ch  = mTxt(x,y);
-        bool spc = ch.isSpace();
-        spaces   = spc ? spaces + 1 : 0;
-
-        if (line.isEmpty())
-          lineX = x;
-
-        if (!spc || !line.isEmpty())
-          line.append(ch);
-
-        if (spaces <= 1 && x + 1 < mTxt.width())
-          continue;
-      }
-
-      if (line.isEmpty())
-        continue;
-
-      line.truncate(line.size() - spaces);
-      addLineToParagraphs(std::move(line), lineX, y);
-    }
-  }
-
-  mParagraphs.splice(mParagraphs.end(), mActives);
-}
-
-
-
-void Render::addLineToParagraphs(QString&& line, int x, int y)
-{
-  for (auto para = mActives.begin(); para != mActives.end(); )
-  {
-    if (y > para->bottom() + 1)
-    {
-      auto old = para++;
-      mParagraphs.splice(mParagraphs.end(), mActives, old);
-    }
-    else if (para->addLine(std::move(line), x, y))
-      return;
-    else
-      ++para;
-  }
-
-  mActives.emplace_back(std::move(line), x, y);
-}
-
-
-
 namespace {
 QRect alignedRect(Qt::Alignment alignment, int width, const QRect& rect)
 {
@@ -552,6 +574,9 @@ void Render::drawParagraphs()
     auto pixwd = para.pixelWidth(fm);
     auto orect = textRect(para.rect());
     auto rect  = alignedRect(align, pixwd, orect);
+
+    if (para.color.isValid())
+      mPainter.setPen(para.color);
 
     for (int i = 0; i < para.numberOfLines(); ++i)
     {

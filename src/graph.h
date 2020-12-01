@@ -8,7 +8,7 @@ class TextImg;
 
 
 enum NodeKind : quint8
-{ Text, Line, Round, Arrow };
+{ Empty, Text, Line, Round, Arrow };
 
 
 
@@ -98,6 +98,7 @@ class Graph : public Matrix<Node>
     static Graph from(const TextImg& txt);
 
     Direction walkCorner(Direction dir, int x, int y, QChar cornerCh) const noexcept;
+    void setEmpty(int x, int y, int len);
 
   private:
     Graph(int width, int height);

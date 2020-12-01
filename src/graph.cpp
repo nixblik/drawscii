@@ -256,3 +256,14 @@ Direction Graph::walkCorner(Direction dir, int x, int y, QChar cornerCh) const n
 
   Q_UNREACHABLE();
 }
+
+
+
+void Graph::setEmpty(int x, int y, int len)
+{
+  assert(x >= 0 && x + len <= width() && y >= 0 && y < height());
+
+  auto p = &node(x, y);
+  for (auto pe = p + len; p != pe; ++p)
+    p->set(Empty);
+}

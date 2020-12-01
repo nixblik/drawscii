@@ -39,6 +39,9 @@ class TextImg
     int height() const noexcept
     { return mLines.size(); }
 
+    const QString& operator[](int y) const noexcept
+    { return mLines[y]; }
+
     Char operator()(int x, int y) const noexcept;
     void read(QTextStream& in);
 

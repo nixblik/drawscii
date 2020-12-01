@@ -3,27 +3,23 @@
 #include "matrix.h"
 #include <list>
 #include <vector>
-#include <QImage>
 #include <QPainter>
+class Hints;
 class Paragraph;
+struct Shape;
 class TextImg;
-
-
-
-
-using ParagraphList = std::list<Paragraph>;
 
 
 
 class Render
 {
   public:
-    Render(const Graph& graph, const TextImg& txt, int lineWd);
+    Render(const Graph& graph, const TextImg& txt, const QFont& font, int lineWd);
     ~Render();
 
     QSize size() const noexcept;
-    void setFont(const QFont& font);
     void setShadows(bool enable);
+    void apply(const Hints& hints);
     void paint(QPaintDevice* dev);
 
   private:
@@ -33,24 +29,27 @@ class Render
       Direction dir;
       int angle;
     };
-    using ShapePts = std::vector<ShapePt>;
+
+    using ShapePts      = std::vector<ShapePt>;
+    using ShapeList     = std::list<Shape>;
+    using ParagraphList = std::list<Paragraph>;
 
     void computeRenderParams();
+    QPoint point(int x, int y) const noexcept;
+    QRect textRect(const QRect& r) const noexcept;
     void findShapes();
     void findShapeAt(int x0, int y0, Direction dir0);
     Direction findNextShapeDir(Node node, int x, int y, Direction lastDir);
     void registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle);
-    void drawShadows();
-    void drawShapes();
+    void findParagraphs();
+    void addLineToParagraphs(QString&& line, int x, int y);
+    void applyColor(Shape& shape, const QColor& color);
+    void drawShapes(const ShapeList& shapes, const QColor& defaultColor);
     void drawLines();
     void drawLineFrom(int x0, int y0, Direction dir);
     void drawRoundCorner(Node node, int x, int y);
     void drawArrow(int x, int y);
-    void findParagraphs();
-    void addLineToParagraphs(QString&& line, int x, int y);
     void drawParagraphs();
-    QPoint point(int x, int y) const noexcept;
-    QRect textRect(const QRect& r) const noexcept;
 
     const TextImg& mTxt;
     const Graph& mGraph;
@@ -62,8 +61,8 @@ class Render
     ShapePts mShapePts;
     Matrix<Directions> mDone;
     QPolygonF mArrows[4];
-    std::list<QPainterPath> mShadows;
-    std::list<QPainterPath> mShapes;
+    ShapeList mShadows;
+    ShapeList mShapes;
     ParagraphList mParagraphs;
     ParagraphList mActives;
     bool mShadowsEnabled;
