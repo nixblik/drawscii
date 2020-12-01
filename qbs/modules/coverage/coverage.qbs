@@ -17,26 +17,18 @@
 */
 import qbs
 
-Project
-{
-  property string version: "1.0"
-  property string bindir: "bin"
-  property bool testcoverage: false
+Module {
+  Depends { name: "cpp" }
+  
+  Properties {
+    condition: project.testcoverage && qbs.toolchain.contains("gcc") && !qbs.toolchain.contains("clang")
+    cpp.commonCompilerFlags: ["--coverage"]
+    cpp.driverLinkerFlags: ["--coverage"]
+  }
 
-  minimumQbsVersion: "1.11"
-  qbsSearchPaths: ["qbs"]
-
-  references: [
-    "src/draawsci.qbs",
-  ]
-
-  Product {
-    name: "Project"
-    files: [
-          "README.md",
-          "configure.info",
-          "configure",
-          "makefile",
-      ]
+  Properties {
+    condition: project.testcoverage && qbs.toolchain.contains("clang")
+    cpp.commonCompilerFlags: ["-fprofile-instr-generate", "-fcoverage-mapping"]
+    cpp.driverLinkerFlags: ["-fprofile-instr-generate", "-fcoverage-mapping"]
   }
 }

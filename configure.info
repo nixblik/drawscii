@@ -1,0 +1,6 @@
+# Project-specific settings for "configure" shell script
+
+project=draawsci
+email=post@uwesalomon.de
+withqt=true
+copyvars="bindir"

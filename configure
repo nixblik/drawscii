@@ -1,0 +1,370 @@
+#!/bin/sh
+
+prefix=/usr/local
+builddir=$PWD/tmp
+configmk=$PWD/config.mk
+configinfo=$PWD/configure.info
+
+. "$configinfo"
+
+
+
+check_configure_info()
+{
+  if [ -z "$project" ] ; then
+    echo "error: missing \$project definition in $configinfo" 1>&2
+    exit 1
+  elif [ -z "$email" ] ; then
+    echo "error: missing \$email definition in $configinfo" 1>&2
+    exit 1
+  fi
+}
+
+
+
+usage()
+{
+  echo "Configure $project compilation"
+  echo
+  echo "  Usage:  ./configure [OPTION]..."
+  echo
+  echo "Defaults for the options are specified in brackets."
+  echo
+  echo "Configuration:"
+  echo "  -h, --help              display this help and exit"
+  echo "  -q, --quiet, --silent   do not print 'checking ...' messages"
+  echo "  -n, --no-create         do not create output files"
+  echo
+  echo "Installation directories:"
+  echo "  --prefix=PREFIX         install architecture-independent files in PREFIX"
+  echo "                          [/usr/local]"
+  echo "  --exec-prefix=EPREFIX   install architecture-dependent files in EPREFIX [PREFIX]"
+  echo
+  echo "Fine tuning of the installation directories:"
+  echo "  --bindir=DIR            user executables [EPREFIX/bin]"
+  echo "  --sbindir=DIR           system admin executables [EPREFIX/sbin]"
+  echo "  --libexecdir=DIR        program executables [EPREFIX/libexec]"
+  echo "  --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]"
+  echo "  --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]"
+  echo "  --localstatedir=DIR     modifiable single-machine data [PREFIX/var]"
+  echo "  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]"
+  echo "  --libdir=DIR            object code libraries [EPREFIX/lib]"
+  echo "  --includedir=DIR        C header files [PREFIX/include]"
+# echo "  --oldincludedir=DIR     C header files for non-gcc [/usr/include]"
+  echo "  --datarootdir=DIR       read-only arch.-independent data root [PREFIX/share]"
+  echo "  --datadir=DIR           read-only architecture-independent data [DATAROOTDIR]"
+  echo "  --infodir=DIR           info documentation [DATAROOTDIR/info]"
+  echo "  --localedir=DIR         locale-dependent data [DATAROOTDIR/locale]"
+  echo "  --mandir=DIR            man documentation [DATAROOTDIR/man]"
+  echo "  --docdir=DIR            documentation root [DATAROOTDIR/doc/$project]"
+  echo "  --htmldir=DIR           html documentation [DOCDIR]"
+  echo "  --dvidir=DIR            dvi documentation [DOCDIR]"
+  echo "  --pdfdir=DIR            pdf documentation [DOCDIR]"
+  echo "  --psdir=DIR             ps documentation [DOCDIR]"
+  echo
+  echo "System types:"
+  echo "  --host=HOST             cross-compile to build artefacts that run on HOST"
+  echo
+  echo "Optional features:"
+  echo "  --disable-rpath         do not hardcode runtime library paths"
+  echo
+  echo "Optional packages:"
+  echo "  --with-qt               enable Qt library in build [default=$withqt]"
+  echo "  --without-qt            disable Qt library in build"
+  echo
+  echo "Some influential environment variables:"
+  echo "  CC          C compiler command"
+  echo "  CFLAGS      C compiler flags"
+  echo "  LDFLAGS     linker flags, e.g. -L<lib dir> if you have libraries in a nonstandard"
+  echo "              directory <lib dir>"
+# echo "  LIBS        libraries to pass to the linker, e.g. -l<library>"
+  echo "  CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if you"
+  echo "              have headers in a nonstandard directory <include dir>"
+  echo "  QBS         Qbs build tool command"
+  echo "  QBSFLAGS    flags for the Qbs build tool"
+  echo "  QBSARGS     global Qbs property assignments"
+  echo "  QMAKE       Qt qmake binary"
+  echo
+  echo "Report bugs to <$email>."
+}
+
+
+
+process_host_arg()
+{
+  qbsarchitecture=
+  qbstargetos=
+  qbstargettype=
+
+  if [ -z "$1" ] ; then
+    return 0
+  fi
+
+IFS="-" read field1 field2 field3 field4 <<EOF
+$1
+EOF
+
+  case $1 in
+    *-*-*-*-*)  echo "error: invalid --host argument $1" 1>&2; exit 1;;
+    *-*-*-*)    qbsarchitecture=$field1; qbstargetos=$field3; qbstargettype=$field4;;
+    *-*-*)      qbsarchitecture=$field1; qbstargetos=$field2; qbstargettype=$field3;;
+    *)          echo "error: invalid --host argument $1" 1>&2; exit 1;;
+  esac
+
+  $quiet || echo "Enabling cross-build:\n  architecture=$qbsarchitecture\n  os=$qbstargetos\n  subtype=$qbstargettype"
+}
+
+
+
+process_command_line()
+{
+  quiet=false
+  nocreate=false
+  qbshost=
+
+  for arg in $@ ; do
+    case $arg in
+      -h|--help)            usage; exit 0;;
+      -q|--quiet|--silent)  quiet=true;;
+      -n|--no-create)       nocreate=true;;
+      --prefix=*)           prefix=`expr substr "$arg" 10 65535`;;
+      --exec-prefix=*)      execprefix=`expr substr "$arg" 15 65535`;;
+      --bindir=*)           bindir=`expr substr "$arg" 10 65535`;;
+      --sbindir=*)          sbindir=`expr substr "$arg" 11 65535`;;
+      --libexecdir=*)       libexecdir=`expr substr "$arg" 14 65535`;;
+      --sysconfdir=*)       sysconfdir=`expr substr "$arg" 14 65535`;;
+      --sharedstatedir=*)   sharedstatedir=`expr substr "$arg" 18 65535`;;
+      --localstatedir=*)    localstatedir=`expr substr "$arg" 17 65535`;;
+      --runstatedir=*)      runstatedir=`expr substr "$arg" 15 65535`;;
+      --libdir=*)           libdir=`expr substr "$arg" 10 65535`;;
+      --includedir=*)       includedir=`expr substr "$arg" 14 65535`;;
+      --datarootdir=*)      datarootdir=`expr substr "$arg" 15 65535`;;
+      --datadir=*)          datadir=`expr substr "$arg" 11 65535`;;
+      --infodir=*)          infodir=`expr substr "$arg" 11 65535`;;
+      --localedir=*)        localedir=`expr substr "$arg" 13 65535`;;
+      --mandir=*)           mandir=`expr substr "$arg" 10 65535`;;
+      --docdir=*)           docdir=`expr substr "$arg" 10 65535`;;
+      --htmldir=*)          htmldir=`expr substr "$arg" 11 65535`;;
+      --dvidir=*)           dvidir=`expr substr "$arg" 10 65535`;;
+      --pdfdir=*)           pdfdir=`expr substr "$arg" 10 65535`;;
+      --psdir=*)            psdir=`expr substr "$arg" 9 65535`;;
+      --host=*)             qbshost=`expr substr "$arg" 8 65535`;;
+      --disable-rpath)      qbsrpath=false;;
+      --with-qt)            withqt=true;;
+      --without-qt)         withqt=false;;
+      [A-Z]*=*)             eval export "$arg";;
+      *)                    echo "warning: ignored unknown argument $arg" 1>&2;;
+    esac
+  done
+
+  if [ -z "$execprefix" ] ; then     execprefix=$prefix; fi
+  if [ -z "$bindir" ] ; then         bindir=$execprefix/bin; fi
+  if [ -z "$sbindir" ] ; then        sbindir=$execprefix/sbin; fi
+  if [ -z "$libexecdir" ] ; then     libexecdir=$execprefix/libexec; fi
+  if [ -z "$sysconfdir" ] ; then     sysconfdir=$prefix/etc; fi
+  if [ -z "$sharedstatedir" ] ; then sharedstatedir=$prefix/com; fi
+  if [ -z "$localstatedir" ] ; then  localstatedir=$prefix/var; fi
+  if [ -z "$runstatedir" ] ; then    runstatedir=$localstatedir/run; fi
+  if [ -z "$libdir" ] ; then         libdir=$execprefix/lib; fi
+  if [ -z "$includedir" ] ; then     includedir=$prefix/include; fi
+  if [ -z "$datarootdir" ] ; then    datarootdir=$prefix/share; fi
+  if [ -z "$datadir" ] ; then        datadir=$datarootdir; fi
+  if [ -z "$infodir" ] ; then        infodir=$datarootdir/info; fi
+  if [ -z "$localedir" ] ; then      localedir=$datarootdir/locale; fi
+  if [ -z "$mandir" ] ; then         mandir=$datarootdir/man; fi
+  if [ -z "$docdir" ] ; then         docdir=$datarootdir/doc/$project; fi
+  if [ -z "$htmldir" ] ; then        htmldir=$docdir; fi
+  if [ -z "$dvidir" ] ; then         dvidir=$docdir; fi
+  if [ -z "$pdfdir" ] ; then         pdfdir=$docdir; fi
+  if [ -z "$psdir" ] ; then          psdir=$docdir; fi
+
+  if [ -z "$QBS" ] ; then            QBS=qbs; fi
+  if [ -z "$QMAKE" ] ; then          QMAKE=/usr/bin/qmake; fi
+
+  process_host_arg $qbshost
+}
+
+
+
+process_environment()
+{
+  qbsoptimization=
+  qbsdebuginfo=
+  qbsdefines=
+  qbscflags=
+  qbscxxflags=
+  qbscppflags=
+  qbsldflags=
+  qbsincpaths=
+  qbslibpaths=
+  qbsrpath=
+  qbssysroot=
+
+  for flag in $CPPFLAGS ; do
+    case $flag in
+      -D*)         qbsdefines=$qbsdefines,'"'`expr substr "$flag" 3 65535`'"' ;;
+      -I*)         qbsincpaths=$qbsincpaths,'"'`expr substr "$flag" 3 65535`'"' ;;
+      --sysroot=*) qbssysroot='"'`expr substr "$flag" 11 65535`'"' ;;
+      *)           qbscppflags=$qbscppflags,'"'$flag'"' ;;
+    esac
+  done
+
+  for flag in $CFLAGS ; do
+    case $flag in
+      -O2)         qbsoptimization=fast ;;
+      -Os)         qbsoptimization=small ;;
+      -g)          qbsdebuginfo=true ;;
+      --sysroot=*) qbssysroot='"'`expr substr "$flag" 11 65535`'"' ;;
+      *)           qbscflags=$qbscflags,'"'$flag'"' ;;
+    esac
+  done
+
+  for flag in $CXXFLAGS ; do
+    case $flag in
+      -O2)         qbsoptimization=fast ;;
+      -Os)         qbsoptimization=small ;;
+      -g)          qbsdebuginfo=true ;;
+      --sysroot=*) qbssysroot='"'`expr substr "$flag" 11 65535`'"' ;;
+      *)           qbscxxflags=$qbscxxflags,'"'$flag'"' ;;
+    esac
+  done
+
+  for flag in $LDFLAGS ; do
+    case $flag in
+      -l*)         qbsldflags=$qbsldflags,'"'$flag'"' ;;
+      -L*)         qbslibpaths=$qbslibpaths,'"'`expr substr "$flag" 3 65535`'"' ;;
+      -Wl,*)       qbsldflags=$qbsldflags,'"'`expr substr "$flag" 5 65535 | cut -d, --output-delimiter=\",\" -f 1-`'"' ;;
+      --sysroot=*) qbssysroot='"'`expr substr "$flag" 11 65535`'"' ;;
+      *)           echo "error: invalid LDFLAG $flag" 1>&2; exit 1 ;;
+    esac
+  done
+
+  if [ -n "$LIBS" ] ; then
+    echo "warning: ignored \$LIBS environment variable" 1>&2
+  fi
+
+  if [ -n "$DEB_BUILD_ARCH" ] ; then
+    qbsrpath=false
+  fi
+}
+
+
+
+version_le()
+{
+  test "$1" = "`printf "$1\n$2" | sort -V | head -n1`"
+}
+
+
+
+check_qbs_version()
+{
+  qbsversion=`$QBS show-version`
+
+  if [ -z "$qbsversion" ] ; then
+    echo "error: failed to detect Qbs version" 1>&2
+    exit 1
+  elif version_le $qbsversion 1.10.99 ; then
+    echo "error: Qbs version must be >= 1.11" 1>&2
+    exit 1
+  fi
+
+  $quiet || echo "Qbs $qbsversion detected..."
+}
+
+
+
+write_config_mk()
+{
+  echo "#!/usr/bin/make -f\n" > $configmk
+
+  echo "export QBS := $QBS" >> $configmk
+  echo "QBSFLAGS := $QBSFLAGS" >> $configmk
+  echo "QBSARGS := $QBSARGS" >> $configmk
+  echo "export QT_SELECT := qt5" >> $configmk
+  echo "QMAKE := $QMAKE" >> $configmk
+  [ -z "$CC" ] || echo "CC := $CC" >> $configmk
+  echo >> $configmk
+
+  echo "builddir := $builddir" >> $configmk
+  echo "prefix := $prefix" >> $configmk
+  echo "exec_prefix := $execprefix" >> $configmk
+  echo "bindir := $bindir" >> $configmk
+  echo "sbindir := $sbindir" >> $configmk
+  echo "libexecdir := $libexecdir" >> $configmk
+  echo "sysconfdir := $sysconfdir" >> $configmk
+  echo "sharedstatedir := $sharedstatedir" >> $configmk
+  echo "localstatedir := $localstatedir" >> $configmk
+  echo "runstatedir := $runstatedir" >> $configmk
+  echo "libdir := $libdir" >> $configmk
+  echo "includedir := $includedir" >> $configmk
+  echo "datarootdir := $datarootdir" >> $configmk
+  echo "datadir := $datadir" >> $configmk
+  echo "pkgdatadir := $datadir/$project" >> $configmk
+  echo "infodir := $infodir" >> $configmk
+  echo "localedir := $localedir" >> $configmk
+  echo "mandir := $mandir" >> $configmk
+  echo "docdir := $docdir" >> $configmk
+  echo "htmldir := $htmldir" >> $configmk
+  echo "dvidir := $dvidir" >> $configmk
+  echo "pdfdir := $pdfdir" >> $configmk
+  echo "psdir := $psdir" >> $configmk
+  echo >> $configmk
+
+  echo "qbscfdir := \$(builddir)/.qbscf" >> $configmk
+  echo "qbscf := \$(qbscfdir)/.dir" >> $configmk
+  echo "qbscfflags := --settings-dir \"\$(qbscfdir)\"" >> $configmk
+  echo "qbsflags := \$(qbscfflags) -d \"\$(builddir)\"" >> $configmk
+  echo "qbsargs := qbs.installPrefix:\"\"" >> $configmk
+  for v in $copyvars ; do
+    echo "qbsargs += project.$v:\"\$($v)\"" >> $configmk
+  done
+  [ -z "$qbsarchitecture" ] || echo "qbsargs += qbs.architecture:\"$qbsarchitecture\"" >> $configmk
+  [ -z "$qbstargetos" ]     || echo "qbsargs += qbs.targetPlatform:\"$qbstargetos\"" >> $configmk
+  echo >> $configmk
+
+  echo "\$(qbscf): $configmk" >> $configmk
+  if [ -z "$CC" ] ; then
+    echo "\t\$(QBS) setup-toolchains \$(qbscfflags) --detect" >> $configmk
+  else
+    echo "\t\$(QBS) setup-toolchains \$(qbscfflags) \"\$(CC)\" makecc" >> $configmk
+  fi
+  echo "\t\$(QBS) config \$(qbscfflags) --unset profiles.make" >> $configmk
+  echo "\t\$(QBS) config \$(qbscfflags) profiles.make.warningLevel all" >> $configmk
+
+  [ "x$withqt" != "xtrue" ] || echo "\t\$(QBS) setup-qt \$(qbscfflags) \"\$(QMAKE)\" make" >> $configmk
+  [ -z "$CC" ]              || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.baseProfile makecc" >> $configmk
+  [ -z "$qbssysroot" ]      || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.qbs.sysroot '$qbssysroot'" >> $configmk
+  [ -z "$qbsoptimization" ] || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.optimization '$qbsoptimization'" >> $configmk
+  [ -z "$qbsdebuginfo" ]    || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.debugInformation '$qbsdebuginfo'" >> $configmk
+  [ -z "$qbsdefines" ]      || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.defines '[`expr substr "$qbsdefines" 2 65535`]'" >> $configmk
+  [ -z "$qbscflags" ]       || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.cFlags '[`expr substr "$qbscflags" 2 65535`]'" >> $configmk
+  [ -z "$qbscxxflags" ]     || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.cxxFlags '[`expr substr "$qbscxxflags" 2 65535`]'" >> $configmk
+  [ -z "$qbscppflags" ]     || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.commonCompilerFlags '[`expr substr "$qbscppflags" 2 65535`]'" >> $configmk
+  [ -z "$qbsldflags" ]      || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.linkerFlags '[`expr substr "$qbsldflags" 2 65535`]'" >> $configmk
+  [ -z "$qbsincpaths" ]     || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.includePaths '[`expr substr "$qbsincpaths" 2 65535`]'" >> $configmk
+  [ -z "$qbslibpaths" ]     || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.libraryPaths '[`expr substr "$qbslibpaths" 2 65535`]'" >> $configmk
+  [ -z "$qbsrpath" ]        || echo "\t\$(QBS) config \$(qbscfflags) profiles.make.cpp.useRPaths $qbsrpath" >> $configmk
+  echo "\t\$(QBS) config \$(qbscfflags) --export \$(qbscf)" >> $configmk
+  echo >> $configmk
+
+  echo ".PHONY: distclean clean-qbscf" >> $configmk
+  echo "distclean: clean-qbscf" >> $configmk
+  echo "clean-qbscf:" >> $configmk
+  echo "\t-rm -rf \"\$(qbscfdir)\"" >> $configmk
+}
+
+
+
+check_configure_info
+process_command_line $@
+process_environment
+check_qbs_version
+
+if [ "x$nocreate" = "xtrue" ] ; then
+  $quiet || echo "Success; no configuration has been written"
+  exit 0
+fi
+
+write_config_mk
+$quiet || echo "Configuration has been written to $configmk\nNow run make"

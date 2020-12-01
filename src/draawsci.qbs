@@ -17,26 +17,40 @@
 */
 import qbs
 
-Project
-{
-  property string version: "1.0"
-  property string bindir: "bin"
-  property bool testcoverage: false
+QtApplication {
+  name: "draawsci"
+  files: [
+        "common.h",
+        "flags.h",
+        "graph.cpp",
+        "graph.h",
+        "hints.cpp",
+        "hints.h",
+        "main.cpp",
+        "matrix.h",
+        "outputfile.cpp",
+        "outputfile.h",
+        "render.cpp",
+        "render.h",
+        "runtimeerror.cpp",
+        "runtimeerror.h",
+        "textimg.cpp",
+        "textimg.h",
+    ]
 
-  minimumQbsVersion: "1.11"
-  qbsSearchPaths: ["qbs"]
+  Depends { name:"Qt"; submodules:["core","gui","svg"] }
+  Depends { name:"coverage" }
 
-  references: [
-    "src/draawsci.qbs",
+  consoleApplication: true
+  cpp.cxxLanguageVersion: "c++11"
+  cpp.defines: [
+    'QT_DEPRECATED_WARNINGS',
+    'VERSION="' + project.version + '"',
   ]
 
-  Product {
-    name: "Project"
-    files: [
-          "README.md",
-          "configure.info",
-          "configure",
-          "makefile",
-      ]
+  Group {
+    fileTagsFilter: "application"
+    qbs.install: true
+    qbs.installDir: project.bindir
   }
 }
