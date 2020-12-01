@@ -1,3 +1,4 @@
 /tmp/
+/config.mk
 *.qbs.user
 *.autosave
