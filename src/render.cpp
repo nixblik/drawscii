@@ -149,7 +149,8 @@ Render::Render(const Graph& graph, const TextImg& txt, const QFont& font, int li
     mDashedPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine},
     mBrush{Qt::black},
     mDone{graph.width(), graph.height()},
-    mShadowsEnabled{false}
+    mShadowsEnabled{false},
+    mAntialias{true}
 {
   mDashedPen.setDashPattern({5, 3});
   mShapePts.reserve(64);
@@ -168,6 +169,10 @@ Render::~Render()
 
 void Render::setShadows(bool enable)
 { mShadowsEnabled = enable; }
+
+
+void Render::setAntialias(bool enable)
+{ mAntialias = enable; }
 
 
 
@@ -422,10 +427,14 @@ void Render::applyColor(Shape& shape, const QColor& color)
 void Render::paint(QPaintDevice* dev)
 {
   mPainter.begin(dev);
-  mPainter.setRenderHints(QPainter::Antialiasing|QPainter::HighQualityAntialiasing);
-  mPainter.setRenderHint(QPainter::TextAntialiasing);
   mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
   mPainter.setFont(mFont);
+
+  if (mAntialias)
+  {
+    mPainter.setRenderHints(QPainter::Antialiasing|QPainter::HighQualityAntialiasing);
+    mPainter.setRenderHint(QPainter::TextAntialiasing);
+  }
 
   if (mSolidPen.width() & 1)
     mPainter.translate(0.5, 0.5);

@@ -39,16 +39,20 @@ Char TextImg::operator()(int x, int y) const noexcept
 
 
 
-void TextImg::read(QTextStream& in)
+void TextImg::read(QTextStream& in, int tabWidth)
 {
   assert(mLines.isEmpty());
   mLines.reserve(128);
+
+  QString spaces(tabWidth, ' ');
 
   for (;;)
   {
     auto line = in.readLine();
     if (line.isNull())
       break;
+
+    line.replace('\t', spaces);
 
     mWidth = qMax(mWidth, line.size());
     mLines.push_back(std::move(line));

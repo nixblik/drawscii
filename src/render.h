@@ -36,6 +36,7 @@ class Render
 
     QSize size() const noexcept;
     void setShadows(bool enable);
+    void setAntialias(bool enable);
     void apply(const Hints& hints);
     void paint(QPaintDevice* dev);
 
@@ -83,6 +84,7 @@ class Render
     ParagraphList mParagraphs;
     ParagraphList mActives;
     bool mShadowsEnabled;
+    bool mAntialias;
 
     int mScaleX;
     int mScaleY;

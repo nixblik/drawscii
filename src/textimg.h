@@ -60,7 +60,7 @@ class TextImg
     { return mLines[y]; }
 
     Char operator()(int x, int y) const noexcept;
-    void read(QTextStream& in);
+    void read(QTextStream& in, int tabWidth = 8);
 
   private:
     int mWidth;
