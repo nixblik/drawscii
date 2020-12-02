@@ -220,7 +220,6 @@ inline QRect Render::textRect(const QRect& r) const noexcept
 
 
 
-// FIXME: Are dashed shapes to have a shadow? Looks strange
 void Render::findShapes()
 {
   mDone.clear();
@@ -323,10 +322,13 @@ void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_itera
 {
   QPainterPath path;
   path.moveTo(point(begin->x, begin->y));
+  int dashCt = 0;
 
   for (auto i = begin + 1; i != end; ++i)
   {
     auto node = mGraph(i->x, i->y);
+    dashCt   += node.isDashed();
+
     if (node.kind() == Round)
     {
       QPoint pt = point(i->x, i->y);
@@ -343,7 +345,7 @@ void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_itera
 
   if (angle < 0)
     mShapes.emplace_back(std::move(path));
-  else
+  else if (dashCt * 4 < end - begin)
     mShadows.emplace_back(path.translated(mShadowDelta, mShadowDelta));
 }
 
