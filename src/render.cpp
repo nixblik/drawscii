@@ -59,12 +59,29 @@ class Paragraph
 
 
 
+namespace {
+inline int leadingSpaces(const QString& s)
+{
+  for (int i = 0; i < s.size(); ++i)
+    if (!s[i].isSpace())
+      return i;
+
+  Q_UNREACHABLE();
+}
+} // namespace
+
+
+
 bool Paragraph::addLine(QString&& line, int x, int y)
 {
   assert(y <= mRect.bottom() + 1);
+  assert(!mLines.empty());
 
   int endx = x + line.size();
   if (endx <= mRect.left() || x > mRect.right() || y <= mRect.bottom())
+    return false;
+
+  if (endx <= mRect.left() + leadingSpaces(mLines.back()) || x >= mRect.left() + mLines.back().length())
     return false;
 
   static QString spaces;
@@ -81,19 +98,6 @@ bool Paragraph::addLine(QString&& line, int x, int y)
 
   return true;
 }
-
-
-
-namespace {
-inline int leadingSpaces(const QString& s)
-{
-  for (int i = 0; i < s.size(); ++i)
-    if (!s[i].isSpace())
-      return i;
-
-  Q_UNREACHABLE();
-}
-} // namespace
 
 
 
