@@ -216,7 +216,6 @@ inline QRect Render::textRect(const QRect& r) const noexcept
 
 
 
-// FIXME: Some shapes are not found, like art15.txt shadow. That's because the whole shape is wasted on the first intersection point.
 // FIXME: Are dashed shapes to have a shadow? Looks strange
 void Render::findShapes()
 {
@@ -274,11 +273,18 @@ void Render::findShapeAt(int x0, int y0, Direction dir0)
 
     // Check whether new point closes the shape TODO: This is O(n²)
     for (auto i = mShapePts.begin(); i != mShapePts.end(); ++i)
+    {
       if (i->x == x && i->y == y)
-        return registerShape(i, mShapePts.end(), cur.angle - i->angle);
+      {
+        registerShape(i, mShapePts.end(), cur.angle - i->angle);
+        mShapePts.erase(i + 1, mShapePts.end());
+        goto Continue; // FIXME: Get rid of goto
+      }
+    }
 
     // Continue shape-finding at new point
     mShapePts.push_back({x, y, dir, cur.angle + angle(cur.dir, dir)});
+  Continue:;
   }
 }
 
