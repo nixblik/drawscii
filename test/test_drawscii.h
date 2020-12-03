@@ -15,32 +15,20 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-import qbs
+#pragma once
+#include <QtTest/QTest>
 
-Project
+
+
+class TestDrawscii : public QObject
 {
-  property string version: "1.0"
-  property string bindir: "bin"
-  property bool testcoverage: false
+  Q_OBJECT
 
-  minimumQbsVersion: "1.11"
-  qbsSearchPaths: ["qbs"]
+  private slots:
+    void verifyImageOutput_data();
+    void verifyImageOutput();
 
-  references: [
-    "src/drawscii.qbs",
-    "test/test.qbs",
-  ]
-
-  Product {
-    name: "Project"
-    files: [
-          "README.md",
-          "configure.info",
-          "configure",
-          "makefile",
-          "run_tests",
-      ]
-  }
-
-  AutotestRunner {}
-}
+  private:
+    int runDrawscii(const QStringList& args);
+    void checkImagesEqual(const QString& output, const QString& truth);
+};

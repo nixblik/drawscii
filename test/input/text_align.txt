@@ -1,0 +1,14 @@
+/--------------------------\
+| the                  the |
+| horizontal    horizontal |
+| alignment      alignment |
+| of                    of |
+| strings          strings |
+| is                    is |
+| retained        retained |
+|                          |
+|        this              |
+|         is               |
+|       mostly             |
+|      a centered paragraph|
+\--------------------------/

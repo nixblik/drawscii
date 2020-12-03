@@ -27,8 +27,8 @@ int angle(Direction d1, Direction d2) noexcept
     if (dir == d2)
       return angle;
 
-  Q_UNREACHABLE();
-}
+  Q_UNREACHABLE(); // GCOV_EXCL_LINE
+}                  // GCOV_EXCL_LINE
 
 
 
@@ -271,8 +271,8 @@ Direction Graph::walkCorner(Direction dir, int x, int y, QChar cornerCh) const n
   if ((horzDir && cornerCh == '\\') || (vertDir && cornerCh == '/'))
     return turnedRight90(dir);
 
-  Q_UNREACHABLE();
-}
+  Q_UNREACHABLE(); // GCOV_EXCL_LINE
+}                  // GCOV_EXCL_LINE
 
 
 

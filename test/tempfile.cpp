@@ -15,32 +15,21 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-import qbs
+#include "tempfile.h"
+#include <QDir>
 
-Project
+
+
+TempFile::TempFile(const QString& suffix)
+  : QTemporaryFile{QDir::tempPath() + "/XXXXXX." + suffix}
 {
-  property string version: "1.0"
-  property string bindir: "bin"
-  property bool testcoverage: false
+  if (!open())
+    throw std::runtime_error{"failed to create temporary file: " + errorString().toStdString()};
 
-  minimumQbsVersion: "1.11"
-  qbsSearchPaths: ["qbs"]
-
-  references: [
-    "src/drawscii.qbs",
-    "test/test.qbs",
-  ]
-
-  Product {
-    name: "Project"
-    files: [
-          "README.md",
-          "configure.info",
-          "configure",
-          "makefile",
-          "run_tests",
-      ]
-  }
-
-  AutotestRunner {}
+  close();
 }
+
+
+
+TempFile::~TempFile()
+= default;

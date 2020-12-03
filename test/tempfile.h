@@ -15,32 +15,14 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-import qbs
+#pragma once
+#include <QTemporaryFile>
 
-Project
+
+
+class TempFile : public QTemporaryFile
 {
-  property string version: "1.0"
-  property string bindir: "bin"
-  property bool testcoverage: false
-
-  minimumQbsVersion: "1.11"
-  qbsSearchPaths: ["qbs"]
-
-  references: [
-    "src/drawscii.qbs",
-    "test/test.qbs",
-  ]
-
-  Product {
-    name: "Project"
-    files: [
-          "README.md",
-          "configure.info",
-          "configure",
-          "makefile",
-          "run_tests",
-      ]
-  }
-
-  AutotestRunner {}
-}
+  public:
+    TempFile(const QString& suffix);
+    ~TempFile() override;
+};

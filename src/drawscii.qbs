@@ -41,13 +41,17 @@ QtApplication {
 
   Depends { name:"Qt"; submodules:["core","gui","svg"] }
   Depends { name:"coverage" }
-
-  consoleApplication: true
-  cpp.cxxLanguageVersion: "c++11"
+  cpp.cxxLanguageVersion: "c++14"
   cpp.defines: [
     'QT_DEPRECATED_WARNINGS',
     'VERSION="' + project.version + '"',
   ]
+
+  Export {
+    Depends { name:"cpp" }
+    property string binary: product.buildDirectory + "/" + product.targetName
+    cpp.defines: ['DRAWSCII_BINARY="' + binary + '"']
+  }
 
   Group {
     fileTagsFilter: "application"

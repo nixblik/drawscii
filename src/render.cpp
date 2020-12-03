@@ -66,8 +66,8 @@ inline int leadingSpaces(const QString& s)
     if (!s[i].isSpace())
       return i;
 
-  Q_UNREACHABLE();
-}
+  Q_UNREACHABLE(); // GCOV_EXCL_LINE
+}                  // GCOV_EXCL_LINE
 } // namespace
 
 
@@ -311,7 +311,7 @@ Direction Render::findNextShapeDir(Node node, int x, int y, Direction lastDir)
         return dir;
   }
   else
-    Q_UNREACHABLE();
+    Q_UNREACHABLE(); // GCOV_EXCL_LINE
 
   return Direction{};
 }
@@ -598,7 +598,7 @@ void Render::drawArrow(int x, int y)
     case 'V': arrowIdx = 1; break;
     case '<': arrowIdx = 2; break;
     case '^': arrowIdx = 3; break;
-    default:  Q_UNREACHABLE();
+    default:  Q_UNREACHABLE(); // GCOV_EXCL_LINE
   }
 
   mPainter.setPen(Qt::NoPen);
@@ -617,7 +617,7 @@ QRect alignedRect(Qt::Alignment alignment, int width, const QRect& rect)
     case Qt::AlignLeft:    newX = rect.x(); break;
     case Qt::AlignHCenter: newX = rect.x() + (rect.width() - width) / 2; break;
     case Qt::AlignRight:   newX = rect.x() + rect.width() - width; break;
-    default: Q_UNREACHABLE();
+    default: Q_UNREACHABLE(); // GCOV_EXCL_LINE
   }
 
   return QRect{newX, rect.y(), width, rect.height()};

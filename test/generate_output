@@ -1,0 +1,29 @@
+#!/bin/sh
+set -e
+
+DRAWSCII=../tmp/make/drawscii.*/drawscii
+if [ ! -x $DRAWSCII ]; then
+  echo "error: missing drawscii executable" 1>&2
+  exit 1
+fi
+
+
+$DRAWSCII -o output/arrow_vs_text.png   input/arrow_vs_text.txt
+$DRAWSCII -o output/can.png             input/can.txt
+$DRAWSCII -o output/color_codes.png     input/color_codes.txt
+$DRAWSCII -o output/color_more.png      input/color_more.txt
+$DRAWSCII -o output/corner.png          input/corner.txt
+$DRAWSCII -o output/cornered_line.png   input/cornered_line.txt
+$DRAWSCII -o output/cross.png           input/cross.txt
+$DRAWSCII -o output/diag_tree.png       input/diag_tree.txt
+$DRAWSCII -o output/hell.png            input/hell.txt
+$DRAWSCII -o output/intertwined.png     input/intertwined.txt
+$DRAWSCII -o output/letters.png         input/letters.txt
+$DRAWSCII -o output/linked_shapes.png   input/linked_shapes.txt
+$DRAWSCII -o output/rect_intersect.png  input/rect_intersect.txt
+$DRAWSCII -o output/rect_parallel.png   input/rect_parallel.txt
+$DRAWSCII -o output/square_shade.png    input/square_shade.txt
+$DRAWSCII -o output/text_align.png      input/text_align.txt
+$DRAWSCII -o output/text_bg_color.png   input/text_bg_color.txt
+$DRAWSCII -o output/text_separation.png input/text_separation.txt
+$DRAWSCII -o output/turnkey.png         input/turnkey.txt
