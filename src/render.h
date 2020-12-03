@@ -36,7 +36,7 @@ enum class Shadow
 class Render
 {
   public:
-    Render(const Graph& graph, const TextImg& txt, const QFont& font, int lineWd);
+    Render(const Graph& graph, const TextImg& txt, const QFont& font, float lineWd);
     ~Render();
 
     QSize size() const noexcept;

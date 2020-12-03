@@ -29,6 +29,7 @@
 #include <QGuiApplication>
 #include <QImage>
 #include <QImageWriter>
+#include <QPdfWriter>
 #include <QSvgGenerator>
 #include <QTextCodec>
 
@@ -44,7 +45,7 @@ struct CmdLineArgs
   QTextCodec* codec{nullptr};
   QFont font;
   QColor bg{Qt::white};
-  int lineWd{1};
+  float lineWd{1};
   int shadows{0};
   int tabWidth{8};
   bool antialias{true};
@@ -57,6 +58,16 @@ int parseIntArg(const QString& value, const char* error)
 try
 {
   return std::stoi(value.toUtf8().toStdString());
+}
+catch (const std::exception&)
+{ throw std::runtime_error{error}; }
+
+
+
+float parseFloatArg(const QString& value, const char* error)
+try
+{
+  return std::stof(value.toUtf8().toStdString());
 }
 catch (const std::exception&)
 { throw std::runtime_error{error}; }
@@ -81,8 +92,8 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
   QCommandLineOption backgroundOpt{"background", "Sets the background color for the output image. The following notations are understood: #RGB, #RRGGBB, #AARRGGBB, transparent, and common color names.", "color"};
   QCommandLineOption encodingOpt{{"e", "encoding"}, "Sets the encoding of the input file.", "encoding"};
   QCommandLineOption fontOpt{"font", "Sets the font family for the output image.", "font"};
-  QCommandLineOption fontSizeOpt{"font-size", "Sets the font size for the output image.", "pixels"};
-  QCommandLineOption lineWdOpt{"line-width", "Sets the width of lines for the output image.", "pixels"};
+  QCommandLineOption fontSizeOpt{"font-size", "Sets the font size for the output image. Unit is points for PDF output, otherwise pixels.", "size"};
+  QCommandLineOption lineWdOpt{"line-width", "Sets the width of lines for the output image. Unit is points for PDF output, otherwise pixels.", "width"};
   QCommandLineOption outputFileOpt{"o", "Sets the name of the output file to write to. The file type is determined from the file extension.", "path"};
   QCommandLineOption shadowOpt{"shadows", "Enables drawing drop shadows under closed shapes."};
   QCommandLineOption noShadowOpt{{"S", "no-shadows"}, "Disables drawing drop shadows under closed shapes."};
@@ -109,7 +120,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
   auto formats = QImageWriter::supportedImageFormats();
   formats.removeOne("cur");
   formats.removeOne("ico");
-  formats << "svg";
+  formats << "svg" << "pdf";
   std::sort(formats.begin(), formats.end());
 
   QCommandLineParser parser;
@@ -184,7 +195,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
         result.font.setPixelSize(parseIntArg(parser.value(fontSizeOpt), "Invalid font size"));
 
       if (parser.isSet(lineWdOpt))
-        result.lineWd = parseIntArg(parser.value(lineWdOpt), "Invalid line width");
+        result.lineWd = parseFloatArg(parser.value(lineWdOpt), "Invalid line width");
 
       if (parser.isSet(backgroundOpt))
         result.bg = parseColorArg(parser.value(backgroundOpt), "Invalid background color");
@@ -257,7 +268,6 @@ TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
 
 
 // TODO: Pandoc filter
-// TODO: EPS output format
 //
 int main(int argc, char* argv[])
 try
@@ -295,7 +305,24 @@ try
 
     render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
     render.paint(&svg);
+    fd.done();
+  }
+  else if (suffix == "pdf")
+  {
+    if (args.bg != Qt::white)
+      throw std::runtime_error{"PDF output format must not have background color"};
 
+    if (!args.antialias)
+      std::clog << "warning: Anti-alias cannot be disabled for PDF output" << std::endl;
+
+    OutputFile fd{args.outputFile};
+    QPdfWriter writer{&fd};
+    writer.setPageSize(QPageSize(render.size(), QPageSize::Point));
+    writer.setPageMargins(QMarginsF{});
+    writer.setResolution(72 /*dpi*/);
+
+    render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
+    render.paint(&writer);
     fd.done();
   }
   else if (QImageWriter::supportedImageFormats().contains(suffix))

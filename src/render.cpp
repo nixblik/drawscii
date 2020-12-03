@@ -146,7 +146,7 @@ struct Shape
 
 
 
-Render::Render(const Graph& graph, const TextImg& txt, const QFont& font, int lineWd)
+Render::Render(const Graph& graph, const TextImg& txt, const QFont& font, float lineWd)
   : mTxt{txt},
     mGraph{graph},
     mFont{font},
@@ -281,13 +281,13 @@ void Render::findShapeAt(int x0, int y0, Direction dir0)
       {
         registerShape(i, mShapePts.end(), cur.angle - i->angle);
         mShapePts.erase(i + 1, mShapePts.end());
-        goto Continue; // FIXME: Get rid of goto
+        goto ContinueOuterLoop;
       }
     }
 
     // Continue shape-finding at new point
     mShapePts.push_back({x, y, dir, cur.angle + angle(cur.dir, dir)});
-  Continue:;
+  ContinueOuterLoop:;
   }
 }
 
