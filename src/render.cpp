@@ -431,6 +431,7 @@ void Render::applyColor(Shape& shape, const QColor& color)
 {
   shape.bg = color;
 
+  // FIXME: Don't do this now, do it after all shapes have their color.
   for (auto& para: mParagraphs)
     if (shape.path.contains(point(para.rect().left(), para.rect().top()))) // FIXME: Add point functions and Point class
       para.color = color.lightness() < 100 ? Qt::white : Qt::black;
