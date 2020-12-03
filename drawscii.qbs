@@ -28,6 +28,7 @@ Project
 
   references: [
     "src/drawscii.qbs",
+    "test/test.qbs",
   ]
 
   Product {
