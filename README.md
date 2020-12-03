@@ -1,6 +1,6 @@
-# Draawsci
+# Drawscii
 
-Draawsci is a command-line program that converts ASCII drawings to proper
+Drawscii is a command-line program that converts ASCII drawings to proper
 graphics files. Consider the following example drawing:
 
 ```
@@ -20,11 +20,11 @@ graphics files. Consider the following example drawing:
                                     +-------------+
 ```
 
-This ASCII file is converted by Draawsci to the following image:
+This ASCII file is converted by Drawscii to the following image:
 
-![Example Draawsci output](./doc/example-1.png)
+![Example Drawscii output](./doc/example-1.png)
 
-Draawsci can produce a variety of output formats, including SVG.
+Drawscii can produce a variety of output formats, including SVG.
 
 
 
@@ -51,7 +51,7 @@ TODO
 
 ## Build
 
-Draawsci has these build dependencies:
+Drawscii has these build dependencies:
 
 - [Qt](https://www.qt.io) 5.x
 - [Qbs](https://doc.qt.io/qbs/) 1.11+
@@ -67,6 +67,6 @@ the standard Linux build commands:
 
 ## Acknowledgments
 
-I really like [ditaa](https://github.com/stathissideris/ditaa). Draawsci adopts
+I really like [ditaa](https://github.com/stathissideris/ditaa). Drawscii adopts
 many of its features, while taking a somewhat different approach to parsing and
 graphics output generation.

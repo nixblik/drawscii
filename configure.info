@@ -1,6 +1,6 @@
 # Project-specific settings for "configure" shell script
 
-project=draawsci
+project=drawscii
 email=post@uwesalomon.de
 withqt=true
 copyvars="bindir"

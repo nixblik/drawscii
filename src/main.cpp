@@ -1,19 +1,19 @@
 /*  Copyright 2020 Uwe Salomon <post@uwesalomon.de>
 
-    This file is part of Draawsci.
+    This file is part of Drawscii.
 
-    Draawsci is free software: you can redistribute it and/or modify
+    Drawscii is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    Draawsci is distributed in the hope that it will be useful,
+    Drawscii is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with Draawsci.  If not, see <http://www.gnu.org/licenses/>.
+    along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "graph.h"
 #include "hints.h"
@@ -35,7 +35,7 @@
 
 
 
-enum class Mode { Draawsci, Ditaa };
+enum class Mode { Drawscii, Ditaa };
 
 
 struct CmdLineArgs
@@ -87,7 +87,7 @@ QColor parseColorArg(const QString& value, const char* error)
 
 CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
 {
-  // Draawsci options (some of them will be modified for Ditaa compatibility mode)
+  // Drawscii options (some of them will be modified for Ditaa compatibility mode)
   QCommandLineOption antialiasOpt{"no-antialias", "Disables anti-aliasing."};
   QCommandLineOption backgroundOpt{"background", "Sets the background color for the output image. The following notations are understood: #RGB, #RRGGBB, #AARRGGBB, transparent, and common color names.", "color"};
   QCommandLineOption encodingOpt{{"e", "encoding"}, "Sets the encoding of the input file.", "encoding"};
@@ -134,7 +134,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
 
   switch (mode)
   {
-    case Mode::Draawsci:
+    case Mode::Drawscii:
       parser.addOption(antialiasOpt);
       parser.addOption(backgroundOpt);
       parser.addOption(encodingOpt);
@@ -152,7 +152,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
       break;
 
     case Mode::Ditaa:
-      parser.setApplicationDescription(parser.applicationDescription() + "\n\nThis is Draawsci running in Ditaa compatibility mode.");
+      parser.setApplicationDescription(parser.applicationDescription() + "\n\nThis is Drawscii running in Ditaa compatibility mode.");
       parser.addOption(antialiasOpt);
       parser.addOption(backgroundOpt);
       parser.addOption(debugOpt);
@@ -183,7 +183,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
   CmdLineArgs result;
   switch (mode)
   {
-    case Mode::Draawsci:
+    case Mode::Drawscii:
     {
       if (posArgs.size() > 1)
         throw std::runtime_error{"Too many input files"};
@@ -273,10 +273,10 @@ int main(int argc, char* argv[])
 try
 {
   QGuiApplication app{argc, argv};
-  app.setApplicationName("draawsci");
+  app.setApplicationName("drawscii");
   app.setApplicationVersion(VERSION);
 
-  auto mode  = (QFileInfo{argv[0]}.fileName() == "ditaa" ? Mode::Ditaa : Mode::Draawsci);
+  auto mode  = (QFileInfo{argv[0]}.fileName() == "ditaa" ? Mode::Ditaa : Mode::Drawscii);
   auto args  = processCmdLine(app, mode);
   auto txt   = readTextImg(args.inputFile, args.codec, args.tabWidth);
   auto graph = Graph::from(txt);
