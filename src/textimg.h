@@ -60,6 +60,7 @@ class TextImg
     { return mLines[y]; }
 
     Char operator()(int x, int y) const noexcept;
+    bool isPartOfWord(int x, int y) const noexcept;
     void read(QTextStream& in, int tabWidth = 8);
 
   private:

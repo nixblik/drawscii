@@ -100,7 +100,7 @@ void Graph::pass1(const TextImg& txt)
         case '|':
         case ':':
           if (txt(x,y+1).isOneOf("|:+")) makeEdge(x, y, Line, Down, Line);
-          if (txt(x,y+1).isOneOf("^vV")) makeEdge(x, y, Line, Down, Arrow);
+          if (txt(x,y+1).isOneOf("^vV") && !txt.isPartOfWord(x,y+1)) makeEdge(x, y, Line, Down, Arrow);
           break;
 
         case '<':
@@ -111,7 +111,7 @@ void Graph::pass1(const TextImg& txt)
         case '^':
         case 'v':
         case 'V':
-          if (txt(x,y+1).isOneOf("|:")) makeEdge(x, y, Arrow, Down, Line);
+          if (txt(x,y+1).isOneOf("|:") && !txt.isPartOfWord(x,y)) makeEdge(x, y, Arrow, Down, Line);
           break;
 
         case '/':

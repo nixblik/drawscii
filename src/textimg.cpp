@@ -39,6 +39,14 @@ Char TextImg::operator()(int x, int y) const noexcept
 
 
 
+bool TextImg::isPartOfWord(int x, int y) const noexcept
+{
+  auto& txt = *this;
+  return txt(x-1,y).isLetter() || txt(x+1,y).isLetter();
+}
+
+
+
 void TextImg::read(QTextStream& in, int tabWidth)
 {
   assert(mLines.isEmpty());
