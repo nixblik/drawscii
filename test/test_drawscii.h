@@ -25,10 +25,13 @@ class TestDrawscii : public QObject
   Q_OBJECT
 
   private slots:
+    void initTestCase();
     void verifyImageOutput_data();
     void verifyImageOutput();
 
   private:
     int runDrawscii(const QStringList& args);
     void checkImagesEqual(const QString& output, const QString& truth);
+
+    QString mTmpDir;
 };

@@ -238,9 +238,9 @@ void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_itera
   }
 
   if (angle < 0)
-    mShapes.emplace_back(std::move(path)); // FIXME: Simplified; below too
+    mShapes.emplace_back(path.simplified());
   else if (dashCt * 4 < end - begin)
-    mShadows.emplace_back(path.translated(mShadowDelta, mShadowDelta));
+    mShadows.emplace_back(path.simplified().translated(mShadowDelta, mShadowDelta));
 }
 
 

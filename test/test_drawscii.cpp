@@ -24,6 +24,14 @@ QTEST_MAIN(TestDrawscii)
 
 
 
+void TestDrawscii::initTestCase()
+{
+  mTmpDir = QFINDTESTDATA("tmp");
+  QVERIFY(!mTmpDir.isEmpty());
+}
+
+
+
 void TestDrawscii::verifyImageOutput_data()
 {
   QTest::addColumn<QString>("fbasename");
@@ -56,12 +64,12 @@ try
   QFETCH(QString, fbasename);
   QFETCH(QString, suffix);
 
-  auto input = QFINDTESTDATA("input/" + fbasename + ".txt");
-  auto truth = QFINDTESTDATA("output/" + fbasename + "." + suffix);
+  auto input  = QFINDTESTDATA("input/" + fbasename + ".txt");
+  auto output = mTmpDir + "/" + fbasename + "." + suffix;
+  auto truth  = QFINDTESTDATA("output/" + fbasename + "." + suffix);
 
-  TempFile output{suffix};
-  QCOMPARE(runDrawscii({"-o", output.fileName(), input}), 0);
-  checkImagesEqual(output.fileName(), truth);
+  QCOMPARE(runDrawscii({"-o", output, input}), 0);
+  checkImagesEqual(output, truth);
 }
 catch (const std::exception& e)
 { QFAIL(e.what()); }
