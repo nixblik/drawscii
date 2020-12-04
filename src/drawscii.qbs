@@ -22,6 +22,8 @@ QtApplication {
         "blur.cpp",
         "blur.h",
         "common.h",
+        "direction.cpp",
+        "direction.h",
         "flags.h",
         "graph.cpp",
         "graph.h",
@@ -39,6 +41,7 @@ QtApplication {
         "runtimeerror.h",
         "textimg.cpp",
         "textimg.h",
+        "textpos.h",
     ]
 
   Depends { name:"Qt"; submodules:["core","gui","svg"] }

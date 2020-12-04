@@ -16,29 +16,37 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "textpos.h"
-#include <list>
-#include <QColor>
-class TextImg;
-class Graph;
+#include "direction.h"
 
 
 
-struct Hint
+/// An x, y position in the input text file. The coordinates can give the
+/// column and row of a character. On the contrary, QPoint is used in this
+/// program to denote pixel positions in the output image.
+///
+struct TextPos
 {
-  Hint(int x, int y, const QColor& col) noexcept
-    : pos{x, y},
-      color{col}
+  constexpr TextPos(int nx, int ny) noexcept
+    : x{nx},
+      y{ny}
   {}
 
-  TextPos pos;
-  QColor color;
+  TextPos& operator+=(Direction dir) noexcept
+  {
+    x += deltaX(dir);
+    y += deltaY(dir);
+    return *this;
+  }
+
+  int x;
+  int y;
 };
 
 
 
-class Hints : public std::list<Hint>
-{
-  public:
-    static Hints from(const TextImg& txt, Graph& graph);
-};
+inline TextPos operator+(TextPos pt, Direction dir) noexcept
+{ return pt += dir; }
+
+
+inline bool operator==(const TextPos& p1, const TextPos& p2) noexcept
+{ return p1.x == p2.x && p1.y == p2.y; }

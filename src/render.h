@@ -47,8 +47,11 @@ class Render
 
   private:
     struct ShapePt {
-      int x;
-      int y;
+      ShapePt(TextPos p, Direction d, int a) noexcept
+        : pos{p}, dir{d}, angle{a}
+      {}
+
+      TextPos pos;
       Direction dir;
       int angle;
     };
@@ -58,19 +61,19 @@ class Render
     using ParagraphList = std::list<Paragraph>;
 
     void computeRenderParams();
-    QPoint point(int x, int y) const noexcept;
-    QRect textRect(const QRect& r) const noexcept;
+    QPoint toImage(TextPos pos) const noexcept;
+    QRect imageRect(const Paragraph& p) const noexcept;
     void findShapes();
-    void findShapeAt(int x0, int y0, Direction dir0);
-    Direction findNextShapeDir(Node node, int x, int y, Direction lastDir);
+    void findShapeAt(TextPos pos0, Direction dir0);
+    Direction findNextShapeDir(Node node, TextPos pos, Direction lastDir);
     void registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle);
     void findParagraphs();
-    void addLineToParagraphs(QString&& line, int x, int y);
+    void addLineToParagraphs(QString&& line, TextPos pos);
     void drawShapes(const ShapeList& shapes, const QColor& defaultColor);
     void drawLines();
-    void drawLineFrom(int x0, int y0, Direction dir);
-    void drawRoundCorner(Node node, int x, int y);
-    void drawArrow(int x, int y);
+    void drawLineFrom(TextPos pos0, Direction dir);
+    void drawRoundCorner(Node node, TextPos pos);
+    void drawArrow(TextPos pos);
     void drawParagraphs();
 
     const TextImg& mTxt;

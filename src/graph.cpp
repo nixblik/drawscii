@@ -20,18 +20,6 @@
 
 
 
-int angle(Direction d1, Direction d2) noexcept
-{
-  auto dir = opposite(d1);
-  for (int angle = -180; angle < 180; dir = turnedLeft45(dir), angle += 45)
-    if (dir == d2)
-      return angle;
-
-  Q_UNREACHABLE(); // GCOV_EXCL_LINE
-}                  // GCOV_EXCL_LINE
-
-
-
 inline Node& Node::set(NodeKind kind) noexcept
 { mKind = kind; return *this; }
 
@@ -62,6 +50,10 @@ inline Graph::Graph(int width, int height)
 
 inline Node& Graph::node(int x, int y) noexcept
 { return operator()(x, y); }
+
+
+inline Node& Graph::node(TextPos pos) noexcept
+{ return operator[](pos); }
 
 
 
@@ -231,21 +223,17 @@ void Graph::spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0)
     if (!nd0.hasEdge(dir))
       continue;
 
-    int x = x0;
-    int y = y0;
-
+    TextPos pos{x0, y0};
     for (;;)
     {
-      x += deltaX(dir);
-      y += deltaY(dir);
-
-      auto& nd = node(x, y);
+      pos     += dir;
+      auto& nd = node(pos);
       if (nd.isDashed())
         break;
 
       nd.setDashed();
       if (nd.kind() == Round)
-        dir = walkCorner(dir, x, y, txt(x,y));
+        dir = walkCorner(dir, pos, txt[pos]);
       else if (nd.kind() == Arrow)
         break;
 
@@ -257,10 +245,9 @@ void Graph::spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0)
 
 
 
-Direction Graph::walkCorner(Direction dir, int x, int y, QChar cornerCh) const noexcept
+Direction Graph::walkCorner(Direction dir, TextPos pos, QChar cornerCh) const noexcept
 {
-  Q_UNUSED(x); // Needed later when corners can lead to inclined lines
-  Q_UNUSED(y);
+  Q_UNUSED(pos); // Needed later when corners can lead to inclined lines
 
   bool horzDir = bool{(Left|Right) & dir};
   bool vertDir = bool{(Up|Down) & dir};

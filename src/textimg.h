@@ -16,7 +16,7 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "common.h"
+#include "textpos.h"
 #include <cstring>
 #include <QSize>
 #include <QString>
@@ -58,6 +58,9 @@ class TextImg
 
     const QString& operator[](int y) const noexcept
     { return mLines[y]; }
+
+    Char operator[](TextPos pt) const noexcept
+    { return operator()(pt.x, pt.y); }
 
     Char operator()(int x, int y) const noexcept;
     bool isPartOfWord(int x, int y) const noexcept;

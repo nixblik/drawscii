@@ -16,7 +16,7 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "flags.h"
+#include "direction.h"
 #include "matrix.h"
 #include <QChar>
 #include <QSize>
@@ -26,49 +26,6 @@ class TextImg;
 
 enum NodeKind : quint8
 { Empty, Text, Line, Round, Arrow };
-
-
-
-enum Direction : quint8
-{
-  Up         = 0x01,
-  UpRight    = 0x02,
-  Right      = 0x04,
-  DownRight  = 0x08,
-  Down       = 0x10,
-  DownLeft   = 0x20,
-  Left       = 0x40,
-  UpLeft     = 0x80,
-};
-
-using Directions = Flags<Direction>;
-
-
-constexpr Directions operator|(Direction a, Direction b) noexcept
-{ return Directions{a} | Directions{b}; }
-
-constexpr Direction opposite(Direction dir) noexcept
-{ return static_cast<Direction>(dir <= DownRight ? dir << 4 : dir >> 4); }
-
-constexpr Direction turnedRight45(Direction dir) noexcept
-{ return static_cast<Direction>(dir == UpLeft ? Up : dir << 1); }
-
-constexpr Direction turnedRight90(Direction dir) noexcept
-{ return static_cast<Direction>(dir >= Left ? dir >> 6 : dir << 2); }
-
-constexpr Direction turnedLeft45(Direction dir) noexcept
-{ return static_cast<Direction>(dir == Up ? UpLeft : dir >> 1); }
-
-constexpr Direction turnedLeft90(Direction dir) noexcept
-{ return static_cast<Direction>(dir <= UpRight ? dir << 6 : dir >> 2); }
-
-constexpr int deltaX(Direction dir) noexcept
-{ return bool{(UpRight|Right|DownRight) & dir} - bool{(UpLeft|Left|DownLeft) & dir}; }
-
-constexpr int deltaY(Direction dir) noexcept
-{ return bool{(DownLeft|Down|DownRight) & dir} - bool{(UpLeft|Up|UpRight) & dir}; }
-
-int angle(Direction d1, Direction d2) noexcept;
 
 
 
@@ -114,7 +71,7 @@ class Graph : public Matrix<Node>
   public:
     static Graph from(const TextImg& txt);
 
-    Direction walkCorner(Direction dir, int x, int y, QChar cornerCh) const noexcept;
+    Direction walkCorner(Direction dir, TextPos pos, QChar cornerCh) const noexcept;
     void setEmpty(int x, int y, int len);
 
   private:
@@ -129,4 +86,5 @@ class Graph : public Matrix<Node>
     void makeCorner(int x, int y, NodeKind from, Direction dir1, NodeKind to1, Direction dir2, NodeKind to2);
     void makeRevEdge(int x, int y, Directions dir, NodeKind k2);
     Node& node(int x, int y) noexcept;
+    Node& node(TextPos pos) noexcept;
 };

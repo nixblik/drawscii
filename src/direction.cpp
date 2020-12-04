@@ -15,30 +15,16 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-#pragma once
-#include "textpos.h"
-#include <list>
-#include <QColor>
-class TextImg;
-class Graph;
+#include "direction.h"
 
 
 
-struct Hint
+int angle(Direction d1, Direction d2) noexcept
 {
-  Hint(int x, int y, const QColor& col) noexcept
-    : pos{x, y},
-      color{col}
-  {}
+  auto dir = opposite(d1);
+  for (int angle = -180; angle < 180; dir = turnedLeft45(dir), angle += 45)
+    if (dir == d2)
+      return angle;
 
-  TextPos pos;
-  QColor color;
-};
-
-
-
-class Hints : public std::list<Hint>
-{
-  public:
-    static Hints from(const TextImg& txt, Graph& graph);
-};
+  Q_UNREACHABLE(); // GCOV_EXCL_LINE
+}                  // GCOV_EXCL_LINE

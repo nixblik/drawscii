@@ -16,7 +16,7 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "common.h"
+#include "textpos.h"
 #include <valarray>
 
 
@@ -44,11 +44,17 @@ class Matrix
       return mData[static_cast<size_t>(y * mWidth + x)];
     }
 
+    const T& operator[](TextPos pt) const noexcept
+    { return operator()(pt.x, pt.y); }
+
     T& operator()(int x, int y) noexcept
     {
       assert(x >= 0 && x < mWidth && y >= 0 && y < mHeight);
       return mData[static_cast<size_t>(y * mWidth + x)];
     }
+
+    T& operator[](TextPos pt) noexcept
+    { return operator()(pt.x, pt.y); }
 
     void clear() noexcept
     { mData = T{}; }

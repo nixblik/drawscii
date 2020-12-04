@@ -16,7 +16,7 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "common.h"
+#include "textpos.h"
 #include <QColor>
 #include <QRect>
 #include <QString>
@@ -30,7 +30,7 @@ class Paragraph
   public:
     using const_iterator = QVector<QString>::const_iterator;
 
-    Paragraph(QString&& line, int x, int y);
+    Paragraph(QString&& line, TextPos pos);
 
     int numberOfLines() const noexcept
     { return mLines.size(); }
@@ -38,16 +38,22 @@ class Paragraph
     const QString& operator[](int index) const
     { return mLines[index]; }
 
-    const QRect& rect() const noexcept
-    { return mRect; }
+    int width() const noexcept
+    { return mRect.width(); }
+
+    int height() const noexcept
+    { return mRect.height(); }
 
     int bottom() const noexcept
     { return mRect.bottom(); }
 
-    const QPoint& innerPoint() const noexcept
+    TextPos topLeft() const noexcept
+    { return TextPos{mRect.x(), mRect.y()}; }
+
+    const TextPos& innerPoint() const noexcept
     { return mFirstPt; }
 
-    bool addLine(QString&& line, int x, int y);
+    bool addLine(QString&& line, TextPos pos);
     Qt::Alignment alignment() const noexcept;
     int pixelWidth(const QFontMetrics& fm) const noexcept;
 
@@ -56,6 +62,6 @@ class Paragraph
   private:
     QVector<QString> mLines;
     QRect mRect;
-    QPoint mFirstPt;
+    TextPos mFirstPt;
     int mLastLineIndent;
 };

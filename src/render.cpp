@@ -103,12 +103,16 @@ QSize Render::size() const noexcept
 { return QSize{mGraph.width() * mScaleX + mShadowDelta, mGraph.height() * mScaleY + mShadowDelta}; }
 
 
-inline QPoint Render::point(int x, int y) const noexcept
-{ return QPoint{x*mScaleX + mDeltaX, y*mScaleY + mDeltaY}; }
+inline QPoint Render::toImage(TextPos pos) const noexcept
+{ return QPoint{pos.x*mScaleX + mDeltaX, pos.y*mScaleY + mDeltaY}; }
 
 
-inline QRect Render::textRect(const QRect& r) const noexcept
-{ return QRect{r.x()*mScaleX, r.y()*mScaleY, r.width()*mScaleX, r.height()*mScaleY}; }
+
+inline QRect Render::imageRect(const Paragraph& p) const noexcept
+{
+  auto pt = p.topLeft();
+  return QRect{pt.x*mScaleX, pt.y*mScaleY, p.width()*mScaleX, p.height()*mScaleY};
+}
 
 
 
@@ -126,31 +130,30 @@ void Render::findShapes()
       if (node.edges() & ~mDone(x,y))
         for (Direction dir = Left; dir != UpLeft; dir = turnedLeft45(dir))
           if (node.edges() & ~mDone(x,y) & dir)
-            findShapeAt(x, y, dir);
+            findShapeAt(TextPos{x, y}, dir);
     }
   }
 }
 
 
 
-void Render::findShapeAt(int x0, int y0, Direction dir0)
+void Render::findShapeAt(TextPos pos0, Direction dir0)
 {
-  mDone(x0,y0) |= dir0;
-  int x = x0 + deltaX(dir0);
-  int y = y0 + deltaY(dir0);
+  mDone[pos0] |= dir0;
+  TextPos pos1 = pos0 + dir0;
 
-  if (mGraph(x,y).kind() == Arrow)
+  if (mGraph[pos1].kind() == Arrow)
     return;
 
   mShapePts.clear();
-  mShapePts.push_back({x0, y0, Direction{}, 0});
-  mShapePts.push_back({x, y, dir0, 0});
+  mShapePts.emplace_back(pos0, Direction{}, 0);
+  mShapePts.emplace_back(pos1, dir0, 0);
 
   while (mShapePts.size() > 1)
   {
     auto& cur  = mShapePts.back();
-    auto  node = mGraph(cur.x, cur.y);
-    auto  dir  = findNextShapeDir(node, cur.x, cur.y, cur.dir);
+    auto  node = mGraph[cur.pos];
+    auto  dir  = findNextShapeDir(node, cur.pos, cur.dir);
 
     if (!dir)
     {
@@ -159,17 +162,16 @@ void Render::findShapeAt(int x0, int y0, Direction dir0)
     }
 
     // Check that new point is ok for shape
-    mDone(cur.x, cur.y) |= dir;
-    x = cur.x + deltaX(dir);
-    y = cur.y + deltaY(dir);
+    mDone[cur.pos] |= dir;
+    TextPos nextPos = cur.pos + dir;
 
-    if (mGraph(x,y).kind() == Arrow)
+    if (mGraph[nextPos].kind() == Arrow)
       continue;
 
     // Check whether new point closes the shape TODO: This is O(n²)
     for (auto i = mShapePts.begin(); i != mShapePts.end(); ++i)
     {
-      if (i->x == x && i->y == y)
+      if (i->pos == nextPos)
       {
         registerShape(i, mShapePts.end(), cur.angle - i->angle);
         mShapePts.erase(i + 1, mShapePts.end());
@@ -178,25 +180,25 @@ void Render::findShapeAt(int x0, int y0, Direction dir0)
     }
 
     // Continue shape-finding at new point
-    mShapePts.push_back({x, y, dir, cur.angle + angle(cur.dir, dir)});
+    mShapePts.emplace_back(nextPos, dir, cur.angle + angle(cur.dir, dir));
   ContinueOuterLoop:;
   }
 }
 
 
 
-Direction Render::findNextShapeDir(Node node, int x, int y, Direction lastDir)
+Direction Render::findNextShapeDir(Node node, TextPos pos, Direction lastDir)
 {
   if (node.kind() == Round)
   {
-    auto dir = mGraph.walkCorner(lastDir, x, y, mTxt(x,y));
-    if (node.edges() & ~mDone(x,y) & dir)
+    auto dir = mGraph.walkCorner(lastDir, pos, mTxt[pos]);
+    if (node.edges() & ~mDone[pos] & dir)
       return dir;
   }
   else if (node.kind() == Line)
   {
     auto rdir  = opposite(lastDir);
-    auto edges = node.edges() & ~mDone(x,y);
+    auto edges = node.edges() & ~mDone[pos];
 
     for (auto dir = turnedLeft45(rdir); dir != rdir; dir = turnedLeft45(dir))
       if (edges & dir)
@@ -213,30 +215,30 @@ Direction Render::findNextShapeDir(Node node, int x, int y, Direction lastDir)
 void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle)
 {
   QPainterPath path;
-  path.moveTo(point(begin->x, begin->y));
+  path.moveTo(toImage(begin->pos));
   int dashCt = 0;
 
   for (auto i = begin + 1; i != end; ++i)
   {
-    auto node = mGraph(i->x, i->y);
+    auto node = mGraph[i->pos];
     dashCt   += node.isDashed();
 
     if (node.kind() == Round)
     {
-      QPoint pt = point(i->x, i->y);
+      QPoint pt = toImage(i->pos);
       QPoint r1 = QPoint{deltaX(i->dir), deltaY(i->dir)} * mRadius;
-      auto   d2 = mGraph.walkCorner(i->dir, i->x, i->y, mTxt(i->x, i->y));
+      auto   d2 = mGraph.walkCorner(i->dir, i->pos, mTxt[i->pos]);
       QPoint r2 = QPoint{deltaX(d2), deltaY(d2)} * mRadius;
 
       path.lineTo(pt - r1);
       path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
     }
     else
-      path.lineTo(point(i->x, i->y));
+      path.lineTo(toImage(i->pos));
   }
 
   if (angle < 0)
-    mShapes.emplace_back(std::move(path));
+    mShapes.emplace_back(std::move(path)); // FIXME: Simplified; below too
   else if (dashCt * 4 < end - begin)
     mShadows.emplace_back(path.translated(mShadowDelta, mShadowDelta));
 }
@@ -274,7 +276,7 @@ void Render::findParagraphs()
         continue;
 
       line.truncate(line.size() - spaces);
-      addLineToParagraphs(std::move(line), lineX, y);
+      addLineToParagraphs(std::move(line), TextPos{lineX, y});
     }
   }
 
@@ -283,22 +285,22 @@ void Render::findParagraphs()
 
 
 
-void Render::addLineToParagraphs(QString&& line, int x, int y)
+void Render::addLineToParagraphs(QString&& line, TextPos pos)
 {
   for (auto para = mActives.begin(); para != mActives.end(); )
   {
-    if (y > para->bottom() + 1)
+    if (pos.y > para->bottom() + 1)
     {
       auto old = para++;
       mParagraphs.splice(mParagraphs.end(), mActives, old);
     }
-    else if (para->addLine(std::move(line), x, y))
+    else if (para->addLine(std::move(line), pos))
       return;
     else
       ++para;
   }
 
-  mActives.emplace_back(std::move(line), x, y);
+  mActives.emplace_back(std::move(line), pos);
 }
 
 
@@ -308,7 +310,7 @@ void Render::apply(const Hints& hints)
 {
   for (auto& hint: hints)
   {
-    auto hintPt = point(hint.x, hint.y);
+    auto hintPt = toImage(hint.pos);
     if (hint.color.isValid())
     {
       for (auto i = mShapes.rbegin(); i != mShapes.rend(); ++i)
@@ -319,7 +321,7 @@ void Render::apply(const Hints& hints)
 
   for (auto& para: mParagraphs)
   {
-    auto paraPt = point(para.innerPoint().x(), para.innerPoint().y());
+    auto paraPt = toImage(para.innerPoint());
 
     for (auto& shape: mShapes)
       if (shape.path.contains(paraPt))
@@ -404,72 +406,66 @@ void Render::drawLines()
       if (node.edges() & ~mDone(x,y) & (Right|DownRight|Down|DownLeft))
         for (Direction dir = Right; dir != Left; dir = turnedRight45(dir))
           if (node.edges() & ~mDone(x,y) & dir)
-            drawLineFrom(x, y, dir);
+            drawLineFrom(TextPos{x, y}, dir);
 
       if (node.kind() == Arrow)
-        drawArrow(x, y);
+        drawArrow(TextPos{x, y});
     }
   }
 }
 
 
 
-void Render::drawLineFrom(int x0, int y0, Direction dir)
+void Render::drawLineFrom(TextPos pos0, Direction dir)
 {
   auto revDir = opposite(dir);
-  int  dx     = deltaX(dir);
-  int  dy     = deltaY(dir);
-  int  x      = x0;
-  int  y      = y0;
+  auto pos    = pos0;
   bool dashed = true;
-  Node node   = mGraph(x,y);
+  Node node   = mGraph[pos];
 
   QPainterPath path;
   if (node.kind() != Round)
-    path.moveTo(point(x, y));
+    path.moveTo(toImage(pos));
   else if (dir == Right)
-    path.moveTo(point(x, y) + QPoint{dx*mRadius, dy*mRadius});
+    path.moveTo(toImage(pos) + QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius});
   else
   {
     // This is a rounded corner like so:  /---    or like so:  /---
     // And it is not a closed shape       |       (future)    /
-    QPoint pt  = point(x, y);
+    QPoint pt  = toImage(pos);
     QPoint r1  = QPoint{-mRadius, 0};
-    QPoint r2  = QPoint{dx*mRadius, dy*mRadius};
+    QPoint r2  = QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius};
 
     path.moveTo(pt - r1);
     path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
   }
 
-  while (node.edges() & ~mDone(x,y) & dir)
+  while (node.edges() & ~mDone[pos] & dir)
   {
-    mDone(x,y) |= dir;
-    x          += dx;
-    y          += dy;
+    mDone[pos] |= dir;
+    pos        += dir;
 
-    mDone(x,y) |= revDir;
-    node        = mGraph(x,y);
+    mDone[pos] |= revDir;
+    node        = mGraph[pos];
     dashed     &= node.isDashed();
 
     if (node.kind() == Round)
     {
       // Rounded corner is drawn with a Bézier curve
-      QPoint pt = point(x, y);
-      QPoint r1 = QPoint{dx*mRadius, dy*mRadius};
+      QPoint pt = toImage(pos);
+      QPoint r1 = QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius};
 
-      dir    = mGraph.walkCorner(dir, x, y, mTxt(x,y));
+      dir    = mGraph.walkCorner(dir, pos, mTxt[pos]);
       revDir = opposite(dir);
-      dx     = deltaX(dir);
-      dy     = deltaY(dir);
 
-      QPoint r2 = QPoint{dx*mRadius, dy*mRadius};
+      QPoint r2 = QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius};
       path.lineTo(pt - r1);
       path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
     }
   }
 
   if (node.kind() != Round) // would only happen for closed shape
-    path.lineTo(point(x, y));
+    path.lineTo(toImage(pos));
 
   mPainter.setPen(dashed ? mDashedPen : mSolidPen);
   mPainter.setBrush(Qt::NoBrush);
@@ -478,10 +474,10 @@ void Render::drawLineFrom(int x0, int y0, Direction dir)
 
 
 
-void Render::drawArrow(int x, int y)
+void Render::drawArrow(TextPos pos)
 {
   int arrowIdx;
-  switch (mTxt(x,y).toLatin1())
+  switch (mTxt[pos].toLatin1())
   {
     case '>': arrowIdx = 0; break;
     case 'v':
@@ -493,7 +489,7 @@ void Render::drawArrow(int x, int y)
 
   mPainter.setPen(Qt::NoPen);
   mPainter.setBrush(mBrush);
-  mPainter.drawPolygon(mArrows[arrowIdx].translated(point(x, y)));
+  mPainter.drawPolygon(mArrows[arrowIdx].translated(toImage(pos)));
 }
 
 
@@ -525,7 +521,7 @@ void Render::drawParagraphs()
   {
     auto align = para.alignment();
     auto pixwd = para.pixelWidth(fm);
-    auto orect = textRect(para.rect());
+    auto orect = imageRect(para);
     auto rect  = alignedRect(align, pixwd, orect);
 
     if (para.color.isValid())
@@ -539,10 +535,10 @@ void Render::drawParagraphs()
       int lalign;
       if (align == Qt::AlignLeft && !line[0].isSpace())
         lalign = Qt::AlignLeft;
-      else if (align == Qt::AlignRight && line.size() == para.rect().width())
+      else if (align == Qt::AlignRight && line.length() == para.width())
         lalign = Qt::AlignRight;
       else
-        lalign = Qt::AlignHCenter;
+        lalign = Qt::AlignHCenter; // FIXME: That's not good, default-center
 
       QRect lrect{rect.x(), ly, rect.width(), mScaleY};
       mPainter.drawText(lrect, lalign, line.trimmed());
