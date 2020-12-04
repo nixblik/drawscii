@@ -105,7 +105,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
   QCommandLineOption helpOpt{"help", "Displays this help."};
   QCommandLineOption htmlOpt{{"h", "html"}, "Does nothing. Provided for ditaa command-line compatibility."};
   QCommandLineOption roundOpt{{"r", "round-corners"}, "Does nothing. Provided for ditaa command-line compatibility."};
-  QCommandLineOption scaleOpt{{"s", "scale"}, "Does nothing. Provided for ditaa command-line compatibility.", "scale"};
+  QCommandLineOption scaleOpt{{"s", "scale"}, "Sets the scaling factor for image output. It is applied to font size and line width.", "scale"};
   QCommandLineOption transpOpt{{"T", "transparent"}, "Causes the diagram to be rendered on a transparent background. Overrides --background."};
   QCommandLineOption fixedSlopeOpt{{"W", "fixed-slope"}, "Does nothing. Provided for ditaa command-line compatibility."};
   QCommandLineOption verboseOpt{{"v", "verbose"}, "Does nothing. Provided for ditaa command-line compatibility."};
@@ -181,6 +181,8 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
     throw std::runtime_error{"Missing input file"};
 
   CmdLineArgs result;
+  result.font.setPixelSize(12);
+
   switch (mode)
   {
     case Mode::Drawscii:
@@ -217,6 +219,13 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
 
       if (parser.isSet(transpOpt))
         result.bg = Qt::transparent;
+
+      if (parser.isSet(scaleOpt))
+      {
+        auto scale    = parseFloatArg(parser.value(scaleOpt), "Invalid scale");
+        result.lineWd = qRound(result.lineWd * scale);
+        result.font.setPixelSize(qRound(result.font.pixelSize() * scale));
+      }
 
       result.antialias = !parser.isSet(antialiasOpt);
       result.shadows   = (parser.isSet(noShadowOpt) ? -1 : 1);
