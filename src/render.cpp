@@ -19,118 +19,10 @@
 #include "blur.h"
 #include "graph.h"
 #include "hints.h"
+#include "paragraph.h"
 #include "textimg.h"
 #include <QImage>
 #include <QPainter>
-
-
-
-class Paragraph
-{
-  public:
-    using const_iterator = QVector<QString>::const_iterator;
-
-    Paragraph(QString&& line, int x, int y)
-      : mRect{x, y, line.size(), 1}
-    { mLines.append(std::move(line)); }
-
-    int numberOfLines() const noexcept
-    { return mLines.size(); }
-
-    const QString& operator[](int index) const
-    { return mLines[index]; }
-
-    const QRect& rect() const noexcept
-    { return mRect; }
-
-    int bottom() const noexcept
-    { return mRect.bottom(); }
-
-    bool addLine(QString&& line, int x, int y);
-    Qt::Alignment alignment() const noexcept;
-    int pixelWidth(const QFontMetrics& fm) const noexcept;
-
-    QColor color;
-
-  private:
-    QRect mRect;
-    QVector<QString> mLines;
-};
-
-
-
-namespace {
-inline int leadingSpaces(const QString& s)
-{
-  for (int i = 0; i < s.size(); ++i)
-    if (!s[i].isSpace())
-      return i;
-
-  Q_UNREACHABLE(); // GCOV_EXCL_LINE
-}                  // GCOV_EXCL_LINE
-} // namespace
-
-
-
-bool Paragraph::addLine(QString&& line, int x, int y)
-{
-  assert(y <= mRect.bottom() + 1);
-  assert(!mLines.empty());
-
-  int endx = x + line.size();
-  if (endx <= mRect.left() || x > mRect.right() || y <= mRect.bottom())
-    return false;
-
-  if (endx <= mRect.left() + leadingSpaces(mLines.back()) || x >= mRect.left() + mLines.back().length())
-    return false;
-
-  static QString spaces;
-  spaces.resize(qAbs(x - mRect.x()), ' ');
-
-  if (x > mRect.x())
-    line.prepend(spaces);
-  else if (x < mRect.x())
-    for (auto& l: mLines)
-      l.prepend(spaces);
-
-  mLines.append(std::move(line));
-  mRect = mRect.united(QRect{x, y, endx - x, 1});
-
-  return true;
-}
-
-
-
-Qt::Alignment Paragraph::alignment() const noexcept
-{
-  int left   = 0;
-  int center = 0;
-  int right  = 0;
-
-  for (auto& line: mLines)
-  {
-    int spc = leadingSpaces(line);
-    left   += (spc == 0);
-    center += qAbs(mRect.width() - line.size() - spc) <= 1;
-    right  += line.size() == mRect.width();
-  }
-
-  if (left > center)
-    return right > left ? Qt::AlignRight : Qt::AlignLeft;
-  else
-    return right > center ? Qt::AlignRight : Qt::AlignHCenter;
-}
-
-
-
-int Paragraph::pixelWidth(const QFontMetrics& fm) const noexcept
-{
-  int wd = 0;
-  for (auto& line: mLines)
-    wd = qMax(wd, fm.width(line));
-
-  return wd;
-}
 
 
 
@@ -411,6 +303,7 @@ void Render::addLineToParagraphs(QString&& line, int x, int y)
 
 
 
+// TODO: This function is O(n²) because the shapes are just a list
 void Render::apply(const Hints& hints)
 {
   for (auto& hint: hints)
@@ -420,21 +313,18 @@ void Render::apply(const Hints& hints)
     {
       for (auto i = mShapes.rbegin(); i != mShapes.rend(); ++i)
         if (i->path.contains(hintPt))
-        { applyColor(*i, hint.color); break; }
+        { i->bg = hint.color; break; }
     }
   }
-}
 
-
-
-void Render::applyColor(Shape& shape, const QColor& color)
-{
-  shape.bg = color;
-
-  // FIXME: Don't do this now, do it after all shapes have their color.
   for (auto& para: mParagraphs)
-    if (shape.path.contains(point(para.rect().left(), para.rect().top()))) // FIXME: Add point functions and Point class
-      para.color = color.lightness() < 100 ? Qt::white : Qt::black;
+  {
+    auto paraPt = point(para.innerPoint().x(), para.innerPoint().y());
+
+    for (auto& shape: mShapes)
+      if (shape.path.contains(paraPt))
+        para.color = shape.bg.isValid() && shape.bg.lightness() < 100 ? Qt::white : Qt::black;
+  }
 }
 
 

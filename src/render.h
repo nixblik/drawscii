@@ -66,7 +66,6 @@ class Render
     void registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle);
     void findParagraphs();
     void addLineToParagraphs(QString&& line, int x, int y);
-    void applyColor(Shape& shape, const QColor& color);
     void drawShapes(const ShapeList& shapes, const QColor& defaultColor);
     void drawLines();
     void drawLineFrom(int x0, int y0, Direction dir);

@@ -31,6 +31,8 @@ QtApplication {
         "matrix.h",
         "outputfile.cpp",
         "outputfile.h",
+        "paragraph.cpp",
+        "paragraph.h",
         "render.cpp",
         "render.h",
         "runtimeerror.cpp",
