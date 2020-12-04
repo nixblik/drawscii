@@ -36,26 +36,28 @@ void TestDrawscii::verifyImageOutput_data()
 {
   QTest::addColumn<QString>("fbasename");
   QTest::addColumn<QString>("suffix");
+  QTest::addColumn<QString>("args");
 
-  QTest::newRow("arrow_vs_text.png")   << "arrow_vs_text"   << "png";
-  QTest::newRow("can.png")             << "can"             << "png";
-  QTest::newRow("color_codes.png")     << "color_codes"     << "png";
-  QTest::newRow("color_more.png")      << "color_more"      << "png";
-  QTest::newRow("corner.png")          << "corner"          << "png";
-  QTest::newRow("cornered_line.png")   << "cornered_line"   << "png";
-  QTest::newRow("cross.png")           << "cross"           << "png";
-  QTest::newRow("diag_tree.png")       << "diag_tree"       << "png";
-  QTest::newRow("hell.png")            << "hell"            << "png";
-  QTest::newRow("intertwined.png")     << "intertwined"     << "png";
-  QTest::newRow("letters.png")         << "letters"         << "png";
-  QTest::newRow("linked_shapes.png")   << "linked_shapes"   << "png";
-  QTest::newRow("rect_intersect.png")  << "rect_intersect"  << "png";
-  QTest::newRow("rect_parallel.png")   << "rect_parallel"   << "png";
-  QTest::newRow("square_shade.png")    << "square_shade"    << "png";
-  QTest::newRow("text_align.png")      << "text_align"      << "png";
-  QTest::newRow("text_bg_color.png")   << "text_bg_color"   << "png";
-  QTest::newRow("text_separation.png") << "text_separation" << "png";
-  QTest::newRow("turnkey.png")         << "turnkey"         << "png";
+  QTest::newRow("arrow_vs_text.png")   << "arrow_vs_text"   << "png" << "";
+  QTest::newRow("can.png")             << "can"             << "png" << "";
+  QTest::newRow("color_codes.png")     << "color_codes"     << "png" << "";
+  QTest::newRow("color_more.png")      << "color_more"      << "png" << "--no-shadows";
+  QTest::newRow("corner.png")          << "corner"          << "png" << "";
+  QTest::newRow("cornered_line.png")   << "cornered_line"   << "png" << "";
+  QTest::newRow("cross.png")           << "cross"           << "png" << "--line-width 5";
+  QTest::newRow("diag_tree.bmp")       << "diag_tree"       << "bmp" << "";
+  QTest::newRow("hell.png")            << "hell"            << "png" << "--font-size 20";
+  QTest::newRow("hell.svg")            << "hell"            << "svg" << "--font-size 20";
+  QTest::newRow("intertwined.png")     << "intertwined"     << "png" << "";
+  QTest::newRow("letters.png")         << "letters"         << "png" << "--background transparent";
+  QTest::newRow("linked_shapes.png")   << "linked_shapes"   << "png" << "";
+  QTest::newRow("rect_intersect.svg")  << "rect_intersect"  << "svg" << "--shadows";
+  QTest::newRow("rect_parallel.png")   << "rect_parallel"   << "png" << "";
+  QTest::newRow("square_shade.png")    << "square_shade"    << "png" << "";
+  QTest::newRow("text_align.png")      << "text_align"      << "png" << "";
+  QTest::newRow("text_bg_color.png")   << "text_bg_color"   << "png" << "";
+  QTest::newRow("text_separation.png") << "text_separation" << "png" << "";
+  QTest::newRow("turnkey.png")         << "turnkey"         << "png" << "--no-antialias";
 }
 
 void TestDrawscii::verifyImageOutput()
@@ -63,12 +65,13 @@ try
 {
   QFETCH(QString, fbasename);
   QFETCH(QString, suffix);
+  QFETCH(QString, args);
 
   auto input  = QFINDTESTDATA("input/" + fbasename + ".txt");
   auto output = mTmpDir + "/" + fbasename + "." + suffix;
   auto truth  = QFINDTESTDATA("output/" + fbasename + "." + suffix);
 
-  QCOMPARE(runDrawscii({"-o", output, input}), 0);
+  QCOMPARE(runDrawscii(args.split(' ', QString::SkipEmptyParts) << "-o" << output << input), 0);
   checkImagesEqual(output, truth);
 }
 catch (const std::exception& e)
