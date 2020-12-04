@@ -79,6 +79,24 @@ catch (const std::exception& e)
 
 
 
+void TestDrawscii::errors()
+{
+  QCOMPARE(runDrawscii({}), 1);
+  QCOMPARE(mStderr.constData(), "error: Missing input file");
+
+  QCOMPARE(runDrawscii({QFINDTESTDATA("input/can.txt")}), 1);
+  QCOMPARE(mStderr.constData(), "error: Missing output file");
+
+  TempFile tmp{"png"};
+  QCOMPARE(runDrawscii({tmp.fileName(), QFINDTESTDATA("input/can.txt")}), 1);
+  QCOMPARE(mStderr.constData(), "error: Too many input files");
+
+  QCOMPARE(runDrawscii({"-o", tmp.fileName(), "does/not/exist.txt"}), 1);
+  QCOMPARE(mStderr.constData(), "error: does/not/exist.txt: No such file or directory");
+}
+
+
+
 int TestDrawscii::runDrawscii(const QStringList& args)
 {
   QProcess proc;
@@ -99,6 +117,7 @@ int TestDrawscii::runDrawscii(const QStringList& args)
   if (proc.exitStatus() != QProcess::NormalExit)
     throw std::runtime_error{"draawsci terminated abnormally: " + proc.errorString().toStdString()};
 
+  mStderr = proc.readAllStandardError().simplified();
   return proc.exitCode();
 }
 

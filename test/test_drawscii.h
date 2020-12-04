@@ -28,10 +28,12 @@ class TestDrawscii : public QObject
     void initTestCase();
     void verifyImageOutput_data();
     void verifyImageOutput();
+    void errors();
 
   private:
     int runDrawscii(const QStringList& args);
     void checkImagesEqual(const QString& output, const QString& truth);
 
     QString mTmpDir;
+    QByteArray mStderr;
 };
