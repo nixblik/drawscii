@@ -24,7 +24,8 @@ This ASCII file is converted by Drawscii to the following image:
 
 ![Example Drawscii output](./doc/example-1.png)
 
-Drawscii can produce a variety of output formats, including SVG.
+Drawscii can produce a variety of output formats, in particular PNG, SVG and
+PDF.
 
 
 

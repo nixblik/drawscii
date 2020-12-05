@@ -21,6 +21,7 @@
 #include "render.h"
 #include "runtimeerror.h"
 #include "textimg.h"
+#include <cstdlib>
 #include <iostream>
 #include <QCommandLineParser>
 #include <QDir>
@@ -43,7 +44,7 @@ struct CmdLineArgs
   QString inputFile;
   QString outputFile;
   QTextCodec* codec{nullptr};
-  QFont font;
+  QFont font{"Open Sans"};
   QColor bg{Qt::white};
   float lineWd{1};
   int shadows{0};
@@ -279,6 +280,8 @@ TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
 int main(int argc, char* argv[])
 try
 {
+  setenv("QT_QPA_PLATFORM", "offscreen", 1);
+
   QGuiApplication app{argc, argv};
   app.setApplicationName("drawscii");
   app.setApplicationVersion(VERSION);

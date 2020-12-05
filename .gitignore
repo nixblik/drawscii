@@ -1,5 +1,12 @@
 /tmp/
-/config.mk
 /test/ditaa
+/debian/*.log
+/debian/*.substvars
+/debian/*.debhelper
+/debian/files
+/debian/debhelper-build-stamp
+/debian/drawscii.1
+/debian/drawscii/
+/config.mk
 *.qbs.user
 *.autosave

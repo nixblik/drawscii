@@ -19,11 +19,11 @@ import qbs
 
 Project
 {
-  property string version: "1.0"
+  property string version: "0.5"
   property string bindir: "bin"
   property bool testcoverage: false
 
-  minimumQbsVersion: "1.11"
+  minimumQbsVersion: "1.12"
   qbsSearchPaths: ["qbs"]
 
   references: [
@@ -42,5 +42,7 @@ Project
       ]
   }
 
-  AutotestRunner {}
+  AutotestRunner {
+    arguments: ["-platform", "offscreen"]
+  }
 }

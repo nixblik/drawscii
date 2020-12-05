@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	dh_auto_build
+	help2man tmp/make/drawscii.ffa20135/drawscii -n "convert ASCII drawing to image" -N > debian/drawscii.1
+
+
+
+DEB_VERSION  := $(shell dpkg-parsechangelog -S Version)
+PROJ_VERSION := $(shell grep -Po "version:\s*\"\K[^\"]*" *.qbs)
+ifneq ("$(DEB_VERSION)","$(PROJ_VERSION)")
+$(error version mismatch between project file and debian/changelog)
+endif

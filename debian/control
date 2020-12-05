@@ -1,0 +1,17 @@
+Source: drawscii
+Section: graphics
+Priority: optional
+Maintainer: Uwe Salomon <post@uwesalomon.de>
+Build-Depends: debhelper (>= 10), qbs (>= 1.12), qtbase5-dev, libqt5svg5-dev,
+               help2man, fonts-open-sans
+Standards-Version: 4.1.2
+Homepage: https://gitlab.uwesalomon.de:8443/uwe/drawscii/
+
+Package: drawscii
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: fonts-open-sans
+Description: Convert ASCII drawings to graphics files
+ Drawscii is a command-line program that converts ASCII drawings to proper
+ graphics files. It can produce a variety of output formats, in particular
+ PNG, SVG and PDF.
