@@ -63,6 +63,9 @@ bool Paragraph::addLine(QString&& line, TextPos pos)
 
 Qt::Alignment Paragraph::alignment() const noexcept
 {
+  if (mLines.size() <= 1)
+    return Qt::AlignHCenter;
+
   int left   = 0;
   int center = 0;
   int right  = 0;
@@ -72,13 +75,17 @@ Qt::Alignment Paragraph::alignment() const noexcept
     int spc = leadingSpaces(line);
     left   += (spc == 0);
     center += qAbs(mRect.width() - line.size() - spc) <= 1;
-    right  += line.size() == mRect.width();
+    right  += (line.size() == mRect.width());
   }
 
-  if (left > center)
-    return right > left ? Qt::AlignRight : Qt::AlignLeft;
+  if (right == mLines.size())
+    return left == mLines.size() ? Qt::AlignHCenter : Qt::AlignRight;
+  else if (left == mLines.size())
+    return Qt::AlignLeft;
+  else if (center == mLines.size())
+    return Qt::AlignHCenter;
   else
-    return right > center ? Qt::AlignRight : Qt::AlignHCenter;
+    return Qt::Alignment{};
 }
 
 

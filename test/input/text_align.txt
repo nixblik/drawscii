@@ -7,6 +7,10 @@
 | is                    is |
 | retained        retained |
 |                          |
+|          this            |
+|           is             |
+|        centered          |
+|                          |
 |        this              |
 |         is               |
 |       mostly             |

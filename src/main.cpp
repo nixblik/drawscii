@@ -276,8 +276,6 @@ TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
 
 
 
-// TODO: Pandoc filter
-//
 int main(int argc, char* argv[])
 try
 {

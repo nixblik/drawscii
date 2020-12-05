@@ -1,30 +1,43 @@
 #!/bin/sh
 set -e
 
-DRAWSCII=../tmp/make/drawscii.*/drawscii
+DRAWSCII=$(dirname $0)/../tmp/make/drawscii.*/drawscii
+INPUT=$(dirname $0)/input
+OUTPUT=$(dirname $0)/output
+
 if [ ! -x $DRAWSCII ]; then
   echo "error: missing drawscii executable" 1>&2
+  echo "tried $DRAWSCII"
   exit 1
 fi
 
+if [ ! -d $INPUT ]; then
+  echo "error: missing input directory" 1>&2
+  exit 1
+fi
 
-$DRAWSCII -o output/arrow_vs_text.png   input/arrow_vs_text.txt
-$DRAWSCII -o output/can.png             input/can.txt
-$DRAWSCII -o output/color_codes.png     input/color_codes.txt
-$DRAWSCII -o output/color_more.png      input/color_more.txt      --no-shadows
-$DRAWSCII -o output/corner.png          input/corner.txt
-$DRAWSCII -o output/cornered_line.png   input/cornered_line.txt
-$DRAWSCII -o output/cross.png           input/cross.txt           --line-width 5
-$DRAWSCII -o output/diag_tree.bmp       input/diag_tree.txt
-$DRAWSCII -o output/hell.png            input/hell.txt            --font-size 20
-$DRAWSCII -o output/hell.svg            input/hell.txt            --font-size 20
-$DRAWSCII -o output/intertwined.png     input/intertwined.txt
-$DRAWSCII -o output/letters.png         input/letters.txt         --background transparent
-$DRAWSCII -o output/linked_shapes.png   input/linked_shapes.txt
-$DRAWSCII -o output/rect_intersect.svg  input/rect_intersect.txt  --shadows
-$DRAWSCII -o output/rect_parallel.png   input/rect_parallel.txt
-$DRAWSCII -o output/square_shade.png    input/square_shade.txt
-$DRAWSCII -o output/text_align.png      input/text_align.txt
-$DRAWSCII -o output/text_bg_color.png   input/text_bg_color.txt
-$DRAWSCII -o output/text_separation.png input/text_separation.txt
-$DRAWSCII -o output/turnkey.png         input/turnkey.txt         --no-antialias
+if [ ! -d $OUTPUT ]; then
+  echo "error: missing output directory" 1>&2
+  exit 1
+fi
+
+$DRAWSCII -o $OUTPUT/arrow_vs_text.png   $INPUT/arrow_vs_text.txt
+$DRAWSCII -o $OUTPUT/can.png             $INPUT/can.txt
+$DRAWSCII -o $OUTPUT/color_codes.png     $INPUT/color_codes.txt
+$DRAWSCII -o $OUTPUT/color_more.png      $INPUT/color_more.txt      --no-shadows
+$DRAWSCII -o $OUTPUT/corner.png          $INPUT/corner.txt
+$DRAWSCII -o $OUTPUT/cornered_line.png   $INPUT/cornered_line.txt
+$DRAWSCII -o $OUTPUT/cross.png           $INPUT/cross.txt           --line-width 5
+$DRAWSCII -o $OUTPUT/diag_tree.bmp       $INPUT/diag_tree.txt
+$DRAWSCII -o $OUTPUT/hell.png            $INPUT/hell.txt            --font-size 20
+$DRAWSCII -o $OUTPUT/hell.svg            $INPUT/hell.txt            --font-size 20
+$DRAWSCII -o $OUTPUT/intertwined.png     $INPUT/intertwined.txt
+$DRAWSCII -o $OUTPUT/letters.png         $INPUT/letters.txt         --background transparent
+$DRAWSCII -o $OUTPUT/linked_shapes.png   $INPUT/linked_shapes.txt
+$DRAWSCII -o $OUTPUT/rect_intersect.svg  $INPUT/rect_intersect.txt  --shadows
+$DRAWSCII -o $OUTPUT/rect_parallel.png   $INPUT/rect_parallel.txt
+$DRAWSCII -o $OUTPUT/square_shade.png    $INPUT/square_shade.txt
+$DRAWSCII -o $OUTPUT/text_align.png      $INPUT/text_align.txt
+$DRAWSCII -o $OUTPUT/text_bg_color.png   $INPUT/text_bg_color.txt
+$DRAWSCII -o $OUTPUT/text_separation.png $INPUT/text_separation.txt
+$DRAWSCII -o $OUTPUT/turnkey.png         $INPUT/turnkey.txt         --no-antialias

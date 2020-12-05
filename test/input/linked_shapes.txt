@@ -1,5 +1,5 @@
 +-----------------+                              +----------------------+
-|      Subject    |0..N   0..N+------+0..N   0..N|      Permission      |
+|     Subject     |0..N   0..N+------+0..N   0..N|      Permission      |
 | (some computer) +-----------+ Role +-----------+  (for an operation   |
 +-----------------+           +------+           | on another computer) |
                                                  +----------------------+

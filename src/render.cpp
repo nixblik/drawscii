@@ -168,7 +168,7 @@ void Render::findShapeAt(TextPos pos0, Direction dir0)
     if (mGraph[nextPos].kind() == Arrow)
       continue;
 
-    // Check whether new point closes the shape TODO: This is O(n²)
+    // Check whether new point closes the shape
     for (auto i = mShapePts.begin(); i != mShapePts.end(); ++i)
     {
       if (i->pos == nextPos)
@@ -305,7 +305,6 @@ void Render::addLineToParagraphs(QString&& line, TextPos pos)
 
 
 
-// TODO: This function is O(n²) because the shapes are just a list
 void Render::apply(const Hints& hints)
 {
   for (auto& hint: hints)
@@ -503,11 +502,24 @@ QRect alignedRect(Qt::Alignment alignment, int width, const QRect& rect)
     case Qt::AlignLeft:    newX = rect.x(); break;
     case Qt::AlignHCenter: newX = rect.x() + (rect.width() - width) / 2; break;
     case Qt::AlignRight:   newX = rect.x() + rect.width() - width; break;
-    default: Q_UNREACHABLE(); // GCOV_EXCL_LINE
+    default:               return rect;
   }
 
   return QRect{newX, rect.y(), width, rect.height()};
 }
+} // namespace
+
+
+
+namespace {
+inline int leadingSpaces(const QString& s)
+{
+  for (int i = 0; i < s.size(); ++i)
+    if (!s[i].isSpace())
+      return i;
+
+  Q_UNREACHABLE(); // GCOV_EXCL_LINE
+}                  // GCOV_EXCL_LINE
 } // namespace
 
 
@@ -530,18 +542,12 @@ void Render::drawParagraphs()
     for (int i = 0; i < para.numberOfLines(); ++i)
     {
       auto& line = para[i];
-      int   ly   = rect.y() + i*mScaleY;
+      QRect lrect{rect.x(), rect.y() + i*mScaleY, rect.width(), mScaleY};
 
-      int lalign;
-      if (align == Qt::AlignLeft && !line[0].isSpace())
-        lalign = Qt::AlignLeft;
-      else if (align == Qt::AlignRight && line.length() == para.width())
-        lalign = Qt::AlignRight;
-      else
-        lalign = Qt::AlignHCenter; // FIXME: That's not good, default-center
+      if (align == Qt::Alignment{})
+        lrect.adjust(leadingSpaces(line)*mScaleX, 0, 0, 0);
 
-      QRect lrect{rect.x(), ly, rect.width(), mScaleY};
-      mPainter.drawText(lrect, lalign, line.trimmed());
+      mPainter.drawText(lrect, static_cast<int>(align), line.trimmed());
     }
   }
 }
