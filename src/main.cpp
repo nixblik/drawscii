@@ -15,7 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "graph.h"
+#include "graph2.h"
 #include "hints.h"
 #include "outputfile.h"
 #include "render.h"
@@ -277,6 +277,13 @@ TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
 
 
 
+#include "graph.h"
+#include "textimage.h"
+#include <fstream>
+GRaph createGraph(TextImage& text);
+
+
+
 int main(int argc, char* argv[])
 try
 {
@@ -291,6 +298,15 @@ try
   auto txt   = readTextImg(args.inputFile, args.codec, args.tabWidth);
   auto graph = Graph::from(txt);
   auto hints = Hints::from(txt, graph);
+
+  //-----------------------------------------------
+  std::wifstream wif{args.inputFile.toStdString()};
+  if (!wif.is_open()) throw std::system_error{errno, std::system_category(), "failed to open input file"};
+  auto t2 = TextImage::read(wif, args.tabWidth);
+  auto g2 = createGraph(t2);
+  g2.dump("test.png");
+  return 0;
+  //-----------------------------------------------
 
   Render render{graph, txt, args.font, args.lineWd};
   render.apply(hints);

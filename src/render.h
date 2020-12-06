@@ -16,7 +16,7 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "graph.h"
+#include "graph2.h"
 #include "matrix.h"
 #include <list>
 #include <vector>

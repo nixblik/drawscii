@@ -17,7 +17,7 @@
 */
 #include "hints.h"
 #include "textimg.h"
-#include "graph.h"
+#include "graph2.h"
 #include <QRegExp>
 
 

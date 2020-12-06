@@ -16,75 +16,84 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "direction.h"
-#include "matrix.h"
-#include <QChar>
-#include <QSize>
-class TextImg;
+#include "common.h"
+#include <vector>
 
 
 
-enum NodeKind : quint8
-{ Empty, Text, Line, Round, Arrow };
-
-
-
-class Node
+struct Point
 {
-  public:
-    constexpr Node() noexcept
-      : mKind{Text},
-        mDashed{false},
-        mEdges{}
-    {}
-
-    NodeKind kind() const noexcept
-    { return mKind; }
-
-    bool isLine() const noexcept
-    { return mKind != Text; }
-
-    bool hasEdge(Direction dir) const noexcept
-    { return bool{mEdges & dir}; }
-
-    Directions edges() const noexcept
-    { return mEdges; }
-
-    bool isDashed() const noexcept
-    { return mDashed; }
-
-    Node& set(NodeKind kind) noexcept;
-    Node& addEdge(Direction dir) noexcept;
-    Node& addEdges(Directions dir) noexcept;
-    void setDashed() noexcept;
-
-  private:
-    NodeKind mKind;
-    bool mDashed;
-    Directions mEdges;
+  int x;
+  int y;
 };
 
 
 
-class Graph : public Matrix<Node>
+class Edge
 {
   public:
-    static Graph from(const TextImg& txt);
+    enum Style { None, Line, Double, Dashed };
 
-    Direction walkCorner(Direction dir, TextPos pos, QChar cornerCh) const noexcept;
-    void setEmpty(int x, int y, int len);
+    explicit operator bool() const noexcept
+    { return mStyle != None; }
+
+    Edge() : mStyle{None} {}
+    Style style() const noexcept;
+    void setStyle(Style style) noexcept { mStyle = style; }
+    bool done() const noexcept;
+    void setDone() noexcept;
 
   private:
-    Graph(int width, int height);
-    void readFrom(const TextImg& txt);
-    void pass1(const TextImg& txt);
-    void pass2(const TextImg& txt);
-    void pass3(const TextImg& txt);
-    void findMoreCorners(const TextImg& txt, int x, int y);
-    void spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0);
-    void makeEdge(int x, int y, NodeKind from, Direction dir, NodeKind to);
-    void makeCorner(int x, int y, NodeKind from, Direction dir1, NodeKind to1, Direction dir2, NodeKind to2);
-    void makeRevEdge(int x, int y, Directions dir, NodeKind k2);
-    Node& node(int x, int y) noexcept;
-    Node& node(TextPos pos) noexcept;
+    uint8_t mStyle : 7;
+    bool    mDone  : 1;  // FIXME: Clearing is faster if extra
+};
+
+
+
+class NOde
+{
+  friend class GRaph; // FIXME: No friends
+  public:
+    enum Mark {
+      None = 0,
+      RightArrow, UpArrow, LeftArrow, DownArrow,
+      EmptyCircle, FilledCircle,
+    };
+
+    enum Form { Straight, Bezier };
+
+    NOde(int x, int y) noexcept;
+    Mark mark() const noexcept;
+    Form form() const noexcept;
+    constexpr int numberOfEdges() const noexcept;
+    void setMark(Mark mark) noexcept;
+    void setForm(Form form) noexcept { mForm = form; }
+    Edge& edge(int idx) noexcept;
+    Point target(int idx) noexcept;
+
+  private:
+    Edge mEdges[8];
+    int16_t mX;
+    int16_t mY;
+    uint8_t mMark;
+    uint8_t mForm;
+};
+
+
+
+class GRaph
+{
+  public:
+    const NOde& operator[](Point p) const;
+    NOde& operator[](Point p);
+
+    NOde& moveTo(int x, int y);
+    NOde& relLine(int dx, int dy, Edge::Style style);
+    void line(int x, int y, int dx, int dy, Edge::Style style);
+    void dump(const char* fname) const;
+
+  private:
+    using Nodes = std::vector<NOde>; // FIXME: Not optimal at all
+    Nodes mNodes;
+    Nodes::iterator mCur;
 };

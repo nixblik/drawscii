@@ -17,7 +17,7 @@
 */
 #include "render.h"
 #include "blur.h"
-#include "graph.h"
+#include "graph2.h"
 #include "hints.h"
 #include "paragraph.h"
 #include "textimg.h"
