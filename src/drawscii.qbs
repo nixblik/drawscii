@@ -22,7 +22,7 @@ QtApplication {
         "blur.cpp",
         "blur.h",
         "common.h",
-        "create_graph.cpp",
+        "construct_graph.cpp",
         "direction.cpp",
         "direction.h",
         "flags.h",

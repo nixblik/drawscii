@@ -51,19 +51,34 @@ class TextImage
     const std::wstring& operator[](int y) const noexcept
     {
       assert(y >= 0 && y < height());
-      return mLines[static_cast<size_t>(y)];
+      return mLines[static_cast<size_t>(y)].str;
     }
 
     /// The character in column \a x, row \a y. If the position is out of
     /// bounds, a space character is returned.
     wchar_t operator()(int x, int y) const noexcept;
 
-    /// Whether the character in column \a x, row \a y has an adjacent letter
-    /// at its left or right. The position can be out of bounds.
+    /// Whether the character in column \a x, row \a y has been classified as a
+    /// line-drawing character. Initially, all content is considered text.
+    bool isDrawing(int x, int y) const noexcept;
+
+    /// A reference to the classification of the character in column \a x, row
+    /// \a y as drawing.
+    uint8_t& drawing(int x, int y) noexcept;
+
+    /// Whether the character in column \a x, row \a y is a letter and has an
+    /// adjacent letter at its left or right.
     bool isPartOfWord(int x, int y) const noexcept;
 
   private:
+    struct Line {
+      explicit Line(std::wstring s);
+
+      std::wstring str;
+      std::vector<uint8_t> drawing;
+    };
+
     TextImage() noexcept;
 
-    std::vector<std::wstring> mLines;
+    std::vector<Line> mLines;
 };

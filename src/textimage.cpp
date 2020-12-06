@@ -68,12 +68,20 @@ inline TextImage::TextImage() noexcept
 
 
 
+inline TextImage::Line::Line(std::wstring s)
+  : str{std::move(s)}
+{
+  drawing.resize(str.size(), false);
+}
+
+
+
 wchar_t TextImage::operator()(int x, int y) const noexcept
 {
   if (x < 0 || y < 0 || y >= height())
     return ' ';
 
-  auto& line = mLines[static_cast<size_t>(y)];
+  auto& line = mLines[static_cast<size_t>(y)].str;
   auto  xu   = static_cast<size_t>(x);
 
   if (xu >= line.size())
@@ -84,8 +92,34 @@ wchar_t TextImage::operator()(int x, int y) const noexcept
 
 
 
+bool TextImage::isDrawing(int x, int y) const noexcept
+{
+  assert(x >= 0 && y >= 0 && y < height());
+
+  auto& line = mLines[static_cast<size_t>(y)].drawing;
+  auto  xu   = static_cast<size_t>(x);
+
+  assert(xu < line.size());
+  return line[xu];
+}
+
+
+
+uint8_t& TextImage::drawing(int x, int y) noexcept
+{
+  assert(x >= 0 && y >= 0 && y < height());
+
+  auto& line = mLines[static_cast<size_t>(y)].drawing;
+  auto  xu   = static_cast<size_t>(x);
+
+  assert(xu < line.size());
+  return line[xu];
+}
+
+
+
 bool TextImage::isPartOfWord(int x, int y) const noexcept
 {
   auto& txt = *this;
-  return iswalpha(txt(x-1,y)) || iswalpha(txt(x+1,y));
+  return iswalpha(txt(x,y)) && (iswalpha(txt(x-1,y)) || iswalpha(txt(x+1,y)));
 }

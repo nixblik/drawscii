@@ -32,7 +32,7 @@ struct Point
 class Edge
 {
   public:
-    enum Style { None, Solid, Double, Dashed };
+    enum Style { None, Weak, Solid, Double, Dashed };
 
     explicit operator bool() const noexcept
     { return mStyle != None; }
@@ -88,8 +88,8 @@ class GRaph
     NOde& operator[](Point p);
 
     NOde& moveTo(int x, int y);
-    NOde& relLine(int dx, int dy, Edge::Style style);
-    void line(int x, int y, int dx, int dy, Edge::Style style); // FIXME: Remove
+    NOde& lineTo(int dx, int dy, Edge::Style style);
+    void line(int x, int y, int dx, int dy, Edge::Style style);
     void dump(const char* fname) const;
 
   private:

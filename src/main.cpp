@@ -280,7 +280,7 @@ TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
 #include "graph.h"
 #include "textimage.h"
 #include <fstream>
-GRaph createGraph(TextImage& text);
+GRaph constructGraph(TextImage& text);
 
 
 
@@ -303,7 +303,7 @@ try
   std::wifstream wif{args.inputFile.toStdString()};
   if (!wif.is_open()) throw std::system_error{errno, std::system_category(), "failed to open input file"};
   auto t2 = TextImage::read(wif, args.tabWidth);
-  auto g2 = createGraph(t2);
+  auto g2 = constructGraph(t2);
   g2.dump("test.png");
   return 0;
   //-----------------------------------------------

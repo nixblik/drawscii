@@ -24,7 +24,6 @@ NOde& GRaph::moveTo(int x, int y)
 
 
 
-#include "direction.h" // FIXME: Remove
 int edgeFromDxy(int dx, int dy)
 {
   if (dx < 0)
@@ -51,7 +50,7 @@ int dyFromEdge(int edge)
 
 
 #include <cstdlib>
-NOde& GRaph::relLine(int dx, int dy, Edge::Style style)
+NOde& GRaph::lineTo(int dx, int dy, Edge::Style style)
 {
   assert(dx == 0 || dy == 0 || abs(dx) == abs(dy));
 
@@ -77,7 +76,7 @@ NOde& GRaph::relLine(int dx, int dy, Edge::Style style)
 void GRaph::line(int x, int y, int dx, int dy, Edge::Style style)
 {
   moveTo(x, y);
-  relLine(dx, dy, style);
+  lineTo(dx, dy, style);
 }
 
 
