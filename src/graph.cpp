@@ -6,7 +6,7 @@ inline NOde::NOde(int x, int y) noexcept
   : mEdges{},
     mX(x),
     mY(y),
-    mMark{None},
+    mMark{NoMark},
     mForm{}
 {}
 
@@ -53,6 +53,8 @@ int dyFromEdge(int edge)
 #include <cstdlib>
 NOde& GRaph::relLine(int dx, int dy, Edge::Style style)
 {
+  assert(dx == 0 || dy == 0 || abs(dx) == abs(dy));
+
   int ddx = dx ? dx / abs(dx) : 0;
   int ddy = dy ? dy / abs(dy) : 0;
   int x   = mCur->mX;

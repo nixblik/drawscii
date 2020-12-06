@@ -32,7 +32,7 @@ struct Point
 class Edge
 {
   public:
-    enum Style { None, Line, Double, Dashed };
+    enum Style { None, Solid, Double, Dashed };
 
     explicit operator bool() const noexcept
     { return mStyle != None; }
@@ -55,7 +55,7 @@ class NOde
   friend class GRaph; // FIXME: No friends
   public:
     enum Mark {
-      None = 0,
+      NoMark = 0,
       RightArrow, UpArrow, LeftArrow, DownArrow,
       EmptyCircle, FilledCircle,
     };
@@ -66,7 +66,7 @@ class NOde
     Mark mark() const noexcept;
     Form form() const noexcept;
     constexpr int numberOfEdges() const noexcept;
-    void setMark(Mark mark) noexcept;
+    void setMark(Mark mark) noexcept { mMark = mark; }
     void setForm(Form form) noexcept { mForm = form; }
     Edge& edge(int idx) noexcept;
     Point target(int idx) noexcept;
@@ -89,7 +89,7 @@ class GRaph
 
     NOde& moveTo(int x, int y);
     NOde& relLine(int dx, int dy, Edge::Style style);
-    void line(int x, int y, int dx, int dy, Edge::Style style);
+    void line(int x, int y, int dx, int dy, Edge::Style style); // FIXME: Remove
     void dump(const char* fname) const;
 
   private:

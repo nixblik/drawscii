@@ -10,13 +10,13 @@ class GraphCreator
     void pass1();
 
   private:
-    void parseJunction(int x, int y, wchar_t junctionCh);
-    void parseHLine(int x, int y);
-    void parseVLine(int x, int y);
-    void parseLlCorner(int x, int y, wchar_t cornerCh);
-    void parseLrCorner(int x, int y, wchar_t cornerCh);
-    void parseUlCorner(int x, int y, wchar_t cornerCh);
-    void parseUrCorner(int x, int y, wchar_t cornerCh);
+    bool isPartOfWord(int x, int y) const;
+    void readJunction(int x, int y, NOde::Mark mark);
+    void readHorzLine(int x, int y, Edge::Style style);
+    void readHorzLine(int x, int y, NOde::Mark mark);
+    void readVertLine(int x, int y, Edge::Style style);
+    void readVertLine(int x, int y, NOde::Mark mark);
+    void readCorner(int x, int y, int dx, int dy, NOde::Form form);
 
     TextImage& mText;
     GRaph& mGraph;
@@ -38,29 +38,29 @@ void GraphCreator::pass1()
     auto xe = static_cast<int>(mText[y].size());
     for (int x = 0; x < xe; ++x)
     {
-      switch (auto ch = mText(x, y))
+      switch (mText(x, y))
       {
-        case '+':
-        case '*':
-        case 'o': parseJunction(x, y, ch); break; // FIXME: o is special because o- and -o and o= could occur!
+        case '+': readJunction(x, y, NOde::NoMark); break;
+        case '*': readJunction(x, y, NOde::FilledCircle); break;
+        case 'o': readJunction(x, y, NOde::EmptyCircle); break;
 
-        case '-':
-        case '=': parseHLine(x, y); break;
+        case '-': readHorzLine(x, y, Edge::Solid); break;
+        case '=': readHorzLine(x, y, Edge::Double); break;
+        case '|': readVertLine(x, y, Edge::Solid); break;
+        case ':': readVertLine(x, y, Edge::Dashed); break;
 
-        case '|':
-        case ':': parseVLine(x, y); break;
+        case '<': readHorzLine(x, y, NOde::LeftArrow); break;
+        case '>': readHorzLine(x, y, NOde::RightArrow); break;
+        case '^': readVertLine(x, y, NOde::UpArrow); break;
+        case 'v': readVertLine(x, y, NOde::DownArrow); break;
 
-        case '<':
-        case '>': parseHLine(x, y); break;
+        case '/': readCorner(x, y, +1, +1, NOde::Straight);
+                  readCorner(x, y, -1, -1, NOde::Straight);
+                  break;
 
-        case '^':
-        case 'v': parseVLine(x, y); break;
-
-        case '/': parseLrCorner(x, y, ch);
-                  parseUlCorner(x, y, ch); break;
-
-        case '\\': parseLlCorner(x, y, ch);
-                   parseUrCorner(x, y, ch); break;
+        case '\\': readCorner(x, y, -1, +1, NOde::Straight);
+                   readCorner(x, y, +1, -1, NOde::Straight);
+                   break;
       }
     }
   }
@@ -68,110 +68,186 @@ void GraphCreator::pass1()
 
 
 
-void GraphCreator::parseJunction(int x, int y, wchar_t junctionCh)
+inline bool GraphCreator::isPartOfWord(int x, int y) const
+{ return iswalpha(mText(x-1, y)) || iswalpha(mText(x+1, y)); }
+
+
+
+void GraphCreator::readJunction(int x, int y, NOde::Mark mark)
 {
+  if (mark == NOde::EmptyCircle && isPartOfWord(x, y))
+    return;
+
   switch (mText(x+1, y))
   {
-    case '-': mGraph.line(2*x, 2*y, +3, +0, Edge::Line); break;
-    case '=': mGraph.line(2*x, 2*y, +3, +0, Edge::Double); break;
+    case '-':
+      mGraph.moveTo(2*x, 2*y).setMark(mark);
+      mGraph.relLine(+3, +0, Edge::Solid);
+      break;
+
+    case '=':
+      mGraph.moveTo(2*x, 2*y).setMark(mark);
+      mGraph.relLine(+3, +0, Edge::Double);
+      break;
   }
 
   switch (mText(x, y+1))
   {
-    case '|': mGraph.line(2*x, 2*y, +0, +3, Edge::Line); break;
-    case ':': mGraph.line(2*x, 2*y, +0, +3, Edge::Dashed); break;
+    case '|':
+      mGraph.moveTo(2*x, 2*y).setMark(mark);
+      mGraph.relLine(+0, +3, Edge::Solid);
+      break;
+
+    case ':':
+      mGraph.moveTo(2*x, 2*y).setMark(mark);
+      mGraph.relLine(+0, +3, Edge::Dashed);
+      break;
   }
 }
 
 
 
-void GraphCreator::parseHLine(int x, int y)
+void GraphCreator::readHorzLine(int x, int y, Edge::Style style)
 {
   switch (mText(x+1, y))
   {
-    case '-': mGraph.line(2*x-1, 2*y, +4, +0, Edge::Line); break;
-    case '=': mGraph.line(2*x-1, 2*y, +4, +0, Edge::Dashed); break;
-    case '+': mGraph.line(2*x-1, 2*y, +3, +0, Edge::Line); break;
+    case '-':
+      if (style != Edge::Solid) break;
+      mGraph.moveTo(2*x-1, 2*y);
+      mGraph.relLine(+4, +0, Edge::Solid);
+      break;
+
+    case '=':
+      if (style != Edge::Double) break;
+      mGraph.moveTo(2*x-1, 2*y);
+      mGraph.relLine(+4, +0, Edge::Double);
+      break;
+
+    case '+':
+      mGraph.moveTo(2*x-1, 2*y);
+      mGraph.relLine(+3, +0, style);
+      break;
+
     case '>':
-    case '<': mGraph.line(2*x-1, 2*y, +3, +0, Edge::Line); break;
+      mGraph.moveTo(2*x-1, 2*y);
+      mGraph.relLine(+3, +0, style).setMark(NOde::LeftArrow);
+      break;
+
+    case '<':
+      mGraph.moveTo(2*x-1, 2*y);
+      mGraph.relLine(+3, +0, style).setMark(NOde::LeftArrow);
+      break;
   }
 }
 
 
 
-void GraphCreator::parseVLine(int x, int y)
+void GraphCreator::readHorzLine(int x, int y, NOde::Mark mark)
+{
+  switch (mText(x+1, y))
+  {
+    case '-':
+      mGraph.moveTo(2*x, 2*y).setMark(mark);
+      mGraph.relLine(+3, +0, Edge::Solid);
+      break;
+
+    case '=':
+      mGraph.moveTo(2*x, 2*y).setMark(mark);
+      mGraph.relLine(+3, +0, Edge::Double);
+      break;
+  }
+}
+
+
+
+void GraphCreator::readVertLine(int x, int y, Edge::Style style)
 {
   switch (mText(x, y+1))
   {
-    case '|': mGraph.line(2*x, 2*y-1, +0, +4, Edge::Line); break;
-    case ':': mGraph.line(2*x, 2*y-1, +0, +4, Edge::Dashed); break;
-    case '+': mGraph.line(2*x, 2*y-1, +0, +3, Edge::Line); break;
+    case '|':
+      if (style != Edge::Solid) break;
+      mGraph.moveTo(2*x, 2*y-1);
+      mGraph.relLine(+0, +4, Edge::Solid);
+      break;
+
+    case ':':
+      if (style != Edge::Dashed) break;
+      mGraph.moveTo(2*x, 2*y-1);
+      mGraph.relLine(+0, +4, Edge::Dashed);
+      break;
+
+    case '+':
+      mGraph.moveTo(2*x, 2*y-1);
+      mGraph.relLine(+0, +3, style);
+      break;
+
     case '^':
-    case 'v': mGraph.line(2*x, 2*y-1, +0, +3, Edge::Line); break;
-  }
-}
+      mGraph.moveTo(2*x, 2*y-1);
+      mGraph.relLine(+0, +3, style).setMark(NOde::UpArrow);
+      break;
 
-
-
-void GraphCreator::parseLlCorner(int x, int y, wchar_t cornerCh)
-{
-  if (mText(x-1,y) == '-' || mText(x-1,y) == '=') switch (mText(x,y+1))
-  {
-    case '|':
-    case ':':
-    case '/':
-      mGraph.moveTo(2*x, 2*y+3);
-      mGraph.relLine(+0, -3, Edge::Line).setForm(NOde::Bezier);
-      mGraph.relLine(-3, +0, Edge::Line);
+    case 'v':
+      if (isPartOfWord(x, y)) break;
+      mGraph.moveTo(2*x, 2*y-1);
+      mGraph.relLine(+0, +3, style).setMark(NOde::DownArrow);
       break;
   }
 }
 
 
 
-void GraphCreator::parseLrCorner(int x, int y, wchar_t cornerCh)
+void GraphCreator::readVertLine(int x, int y, NOde::Mark mark)
 {
-  if (mText(x+1,y) == '-') switch (mText(x,y+1))
+  switch (mText(x+1, y))
   {
     case '|':
+      mGraph.moveTo(2*x, 2*y).setMark(mark);
+      mGraph.relLine(+0, +3, Edge::Solid);
+      break;
+
     case ':':
-    case '\\':
-      mGraph.moveTo(2*x, 2*y+3);
-      mGraph.relLine(+0, -3, Edge::Line).setForm(NOde::Bezier);
-      mGraph.relLine(+3, +0, Edge::Line);
+      mGraph.moveTo(2*x, 2*y).setMark(mark);
+      mGraph.relLine(+0, +3, Edge::Dashed);
       break;
   }
 }
 
 
 
-void GraphCreator::parseUlCorner(int x, int y, wchar_t cornerCh)
+void GraphCreator::readCorner(int x, int y, int dx, int dy, NOde::Form form)
 {
-  if (mText(x-1,y) == '-') switch (mText(x,y-1))
+  auto hch = mText(x+dx, y);
+  auto vch = mText(x, y+dy);
+
+  if (!wcschr(L"|:+/", vch))
+    return;
+
+  int dx0 = 3;
+  int dx1 = 3 - (form == NOde::Straight);
+  Edge::Style style;
+
+  switch (hch)
   {
-    case '|':
-    case ':':
-      mGraph.moveTo(2*x, 2*y-3);
-      mGraph.relLine(+0, +3, Edge::Line).setForm(NOde::Bezier);
-      mGraph.relLine(-3, +0, Edge::Line);
-      break;
+    case '-': style = Edge::Solid; break;
+    case '=': style = Edge::Double; break;
+    case '+': style = Edge::Solid; dx0 = 2; --dx1; break;
+    default:  return;
   }
-}
 
+  mGraph.moveTo(2*x + dx0*dx, 2*y);
+  mGraph.relLine(-dx1*dx, +0, style).setForm(form);
+  mGraph.relLine((dx1-dx0)*dx, +dy, style);
 
-
-void GraphCreator::parseUrCorner(int x, int y, wchar_t cornerCh)
-{
-  if (mText(x+1,y) == '-' || mText(x+1,y) == '=') switch (mText(x,y-1))
+  int dy1 = 2;
+  switch (vch)
   {
-    case '|':
-    case ':':
-    case '/':
-      mGraph.moveTo(2*x, 2*y-3);
-      mGraph.relLine(+0, +3, Edge::Line).setForm(NOde::Bezier);
-      mGraph.relLine(+3, +0, Edge::Line);
-      break;
+    case '|': style = Edge::Solid; break;
+    case ':': style = Edge::Dashed; break;
+    case '+': style = Edge::Solid; dy1 = 1; break;
+    case '/': return; // dy1 = 0
   }
+
+  mGraph.relLine(+0, +dy1*dy, style);
 }
 
 
