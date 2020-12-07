@@ -277,12 +277,8 @@ TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
 
 
 
-#include "graph.h"
-#include "textimage.h"
+#include "main.h"
 #include <fstream>
-GRaph constructGraph(TextImage& text);
-
-
 
 int main(int argc, char* argv[])
 try

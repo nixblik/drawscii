@@ -1,4 +1,5 @@
 #include "graph.h"
+#include <stdexcept>
 
 
 
@@ -7,15 +8,27 @@ inline NOde::NOde(int x, int y) noexcept
     mX(x),
     mY(y),
     mMark{NoMark},
-    mForm{}
+    mForm{Straight},
+    mDone{0}
 {}
+
+
+
+NOde& GRaph::operator[](Point p)
+{
+  for (auto i = mNodes.begin(); i != mNodes.end(); ++i)
+    if (i->point() == p)
+      return *i;
+
+  throw std::invalid_argument{"invalid graph node accessed"};
+}
 
 
 
 NOde& GRaph::moveTo(int x, int y)
 {
   for (auto i = mNodes.begin(); i != mNodes.end(); ++i)
-    if (i->mX == x && i->mY == y)
+    if (i->point().x == x && i->point().y == y)
       return *(mCur = i);
 
   mNodes.emplace_back(x, y);
@@ -23,6 +36,8 @@ NOde& GRaph::moveTo(int x, int y)
 }
 
 
+
+namespace {
 
 int edgeFromDxy(int dx, int dy)
 {
@@ -46,6 +61,7 @@ int dyFromEdge(int edge)
   constexpr int res[] = {-1, +1, 0, -1, +1, 0, -1, +1};
   return res[edge];
 }
+} // namespace
 
 
 
@@ -56,16 +72,16 @@ NOde& GRaph::lineTo(int dx, int dy, Edge::Style style)
 
   int ddx = dx ? dx / abs(dx) : 0;
   int ddy = dy ? dy / abs(dy) : 0;
-  int x   = mCur->mX;
-  int y   = mCur->mY;
+  int x   = mCur->point().x;
+  int y   = mCur->point().y;
   int xe  = x + dx;
   int ye  = y + dy;
 
   while (x != xe || y != ye)
   {
-    mCur->mEdges[edgeFromDxy(ddx,ddy)].setStyle(style);
+    mCur->edge(edgeFromDxy(ddx,ddy)).setStyle(style);
     moveTo(x += ddx, y += ddy);
-    mCur->mEdges[edgeFromDxy(-ddx,-ddy)].setStyle(style);
+    mCur->edge(edgeFromDxy(-ddx,-ddy)).setStyle(style);
   }
 
   return *mCur;
@@ -88,10 +104,10 @@ void GRaph::dump(const char* fname) const
   int xmax = 0;
   int ymax = 0;
 
-  for (auto& n: mNodes)
+  for (auto& node: mNodes)
   {
-    xmax = std::max(xmax, int{n.mX} + 1);
-    ymax = std::max(ymax, int{n.mY} + 1);
+    xmax = std::max(xmax, node.point().x + 1);
+    ymax = std::max(ymax, node.point().y + 1);
   }
 
   QImage img(QSize{xmax*5, ymax*5}, QImage::Format_RGB32);
@@ -100,14 +116,12 @@ void GRaph::dump(const char* fname) const
   QPainter pa;
   pa.begin(&img);
   pa.setPen(Qt::black);
-  for (auto& n: mNodes)
+  for (auto& node: mNodes)
   {
-    QPoint np{n.mX*5, n.mY*5};
-    for (int dir = 0; dir < 8; ++dir)
-    {
-      if (n.mEdges[dir])
-        pa.drawLine(np, np + QPoint{dxFromEdge(dir)*5, dyFromEdge(dir)*5});
-    }
+    QPoint np{node.point().x*5, node.point().y*5};
+    for (int dir = 0; dir < node.numberOfEdges(); ++dir)
+      if (auto edge = node.edge(dir))
+        pa.drawLine(np, np + QPoint{edge.dx()*5, edge.dy()*5});
   }
 
   pa.end();
