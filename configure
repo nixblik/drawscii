@@ -278,6 +278,7 @@ write_config_mk()
 {
   echo "#!/usr/bin/make -f\n" > $configmk
 
+  echo "PROJECT := $project" >> $configmk
   echo "export QBS := $QBS" >> $configmk
   echo "QBSFLAGS := $QBSFLAGS" >> $configmk
   echo "QBSARGS := $QBSARGS" >> $configmk

@@ -15,6 +15,8 @@ qbsflags += $(QBSFLAGS) config:make
 qbsargs  += $(QBSARGS)
 qbsbg    := $(builddir)/make/make.bg
 
+PROJ_VERSION := $(shell grep -Po "version:\s*\"\K[^\"]*" *.qbs)
+
 
 
 $(qbsbg): $(qbscf)
@@ -62,5 +64,8 @@ distclean: clean
 	-rm -rf "$(builddir)/make"
 	-rmdir "$(builddir)"
 
+.PHONY: dist
+dist:
+	git archive --format=tar.gz --prefix="$(PROJECT)_$(PROJ_VERSION)/" -o "../$(PROJECT)_$(PROJ_VERSION).orig.tar.gz" HEAD
 
 endif
