@@ -43,26 +43,33 @@ inline bool operator==(const Point& a, const Point& b) noexcept
 class Angle
 {
   public:
-    constexpr explicit Angle(int value) noexcept
-      : mValue{value}
+    constexpr explicit Angle(int degrees) noexcept
+      : mDegrees{degrees}
     {}
 
+    int degrees() const noexcept
+    { return mDegrees; }
+
     Angle& operator+=(Angle other) noexcept
-    { mValue += other.mValue; return *this; }
+    { mDegrees += other.mDegrees; return *this; }
 
     Angle& operator-=(Angle other) noexcept
-    { mValue -= other.mValue; return *this; }
+    { mDegrees -= other.mDegrees; return *this; }
 
+    /// How many degrees this angle turns relative to the \a other angle. The
+    /// result is in the range [-179, 180] degrees. Positive values represent
+    /// a turn to the left, negative values to the right.
     Angle relativeTo(Angle other) const noexcept;
 
   private:
-    int mValue;
+    int mDegrees;
 };
 
 
 
 inline Angle operator+(Angle a, Angle b) noexcept
 { return a += b; }
+
 
 inline Angle operator-(Angle a, Angle b) noexcept
 { return a -= b; }
@@ -77,9 +84,12 @@ class Edge
   public:
     enum Style { None, Weak, Solid, Double, Dashed };
 
-    Edge() noexcept
+    constexpr Edge() noexcept
       : mStyle{None}
     {}
+
+    explicit operator bool() const noexcept
+    { return style() != Edge::None; }
 
     Style style() const noexcept
     { return static_cast<Style>(mStyle); }
@@ -93,9 +103,14 @@ class Edge
 
 
 
+/// A node in a planar Graph.
+///
 class NOde
 {
   public:
+    class EdgeRef;
+    class ConstEdgeRef;
+
     enum Form { Straight, Bezier };
     enum Mark {
       NoMark = 0,
@@ -103,15 +118,26 @@ class NOde
       EmptyCircle, FilledCircle,
     };
 
-    class EdgeRef;
-    class ConstEdgeRef;
+    /// \internal
+    constexpr NOde() noexcept;
 
-    NOde(int x, int y) noexcept;
-    NOde(NOde&&) noexcept =default;
-    NOde& operator=(NOde&&) noexcept =default;
+    /// \internal
+    NOde(int x, int y);
+
+    NOde(NOde&&) noexcept
+    =default;
+
+    NOde& operator=(NOde&&) noexcept
+    =default;
 
     NOde(const NOde&) =delete;
     NOde& operator=(const NOde&) =delete;
+
+    int x() const noexcept
+    { return mX; }
+
+    int y() const noexcept
+    { return mY; }
 
     Point point() const noexcept
     { return Point{mX, mY}; }
@@ -133,10 +159,13 @@ class NOde
 
     ConstEdgeRef edge(int idx) const noexcept;
     EdgeRef edge(int idx) noexcept;
-    EdgeRef nextTodoEdge(Angle prevAngle) noexcept;
+    EdgeRef nextRightwardTodoEdge(Angle prevAngle) noexcept;
 
     bool edgesAllDone() const noexcept
     { return mDone == 0xFF; }
+
+    void clearEdgesDone() noexcept
+    { mDone = 0; }
 
   private:
     Edge mEdges[8];
@@ -160,7 +189,7 @@ class NOde::ConstEdgeRef
     {}
 
     explicit operator bool() const noexcept
-    { return style() != Edge::None; }
+    { return static_cast<bool>(mNode->mEdges[mIndex]); }
 
     Style style() const noexcept
     { return mNode->mEdges[mIndex].style(); }
@@ -173,13 +202,13 @@ class NOde::ConstEdgeRef
     int dy() const noexcept;
 
     Angle angle() const noexcept
-    { return Angle{mIndex}; } // FIXME: Uuuh
+    { return Angle{mIndex * 45}; }
 
     bool done() const noexcept
     { return mNode->mDone & (1u << mIndex); }
 
     bool todo() const noexcept
-    { return style() != Edge::None && !done(); }
+    { return style() != Edge::None && !done(); } // FIXME: Too expensive. Start out by marking only edges todo that exist. Then the test will be much quicker in Node::allEdgesDone()
 
   protected:
     int index() const noexcept
@@ -235,11 +264,12 @@ class GRaph
 
     NOde& moveTo(int x, int y);
     NOde& lineTo(int dx, int dy, Edge::Style style);
-    void line(int x, int y, int dx, int dy, Edge::Style style);
+    void clearEdgesDone() noexcept;
     void dump(const char* fname) const;
 
   private:
     using Nodes = std::vector<NOde>; // FIXME: Not optimal at all, use hashmap; approximate size from number of chars in TextImage
+
     Nodes mNodes;
-    Nodes::iterator mCur;
+    NOde* mCurNode;
 };

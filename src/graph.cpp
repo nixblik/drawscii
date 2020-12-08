@@ -1,16 +1,115 @@
 #include "graph.h"
+#include <cstdlib>
+#include <limits>
 #include <stdexcept>
 
 
 
-inline NOde::NOde(int x, int y) noexcept
+Angle Angle::relativeTo(Angle other) const noexcept
+{
+  auto diff = mDegrees - other.mDegrees;
+  if (diff > 180)
+    return Angle{diff - 360};
+
+  if (diff <= -180)
+    return Angle{diff + 360};
+
+  return Angle{diff};
+}
+
+
+
+constexpr NOde::NOde() noexcept
   : mEdges{},
-    mX(x),
-    mY(y),
+    mX{0},
+    mY{0},
     mMark{NoMark},
     mForm{Straight},
     mDone{0}
 {}
+
+
+
+inline NOde::NOde(int x, int y)
+  : mEdges{},
+    mX{static_cast<int16_t>(x)},
+    mY{static_cast<int16_t>(y)},
+    mMark{NoMark},
+    mForm{Straight},
+    mDone{0}
+{
+  if (x > std::numeric_limits<int16_t>::max() || y > std::numeric_limits<int16_t>::max())
+    throw std::runtime_error{"drawing is too large"};
+}
+
+
+
+Point NOde::ConstEdgeRef::target() const noexcept
+{
+  auto p = mNode->point();
+  return Point{p.x + dx(), p.y + dy()};
+}
+
+
+
+int NOde::ConstEdgeRef::dx() const noexcept
+{
+  assert(mIndex >= 0 && mIndex < 8);
+
+  constexpr static int dxs[] = { +1, +1, 0, -1, -1, -1, 0, +1 };
+  return dxs[mIndex];
+}
+
+
+
+int NOde::ConstEdgeRef::dy() const noexcept
+{
+  assert(mIndex >= 0 && mIndex < 8);
+
+  constexpr static int dys[] = { 0, -1, -1, -1, 0, +1, +1, +1 };
+  return dys[mIndex];
+}
+
+
+
+namespace {
+
+inline int edgeIndexFromDxDy(int dx, int dy)
+{
+  assert(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 && (dx || dy));
+
+  constexpr static int edges[] = { 3, 2, 1, 4, -1, 0, 5, 6, 7 };
+  return edges[4+dx+dy*3];
+}
+
+
+
+inline int reverseEdgeIndex(int idx)
+{
+  assert(idx >= 0);
+  return (idx + 4) & 7;
+}
+
+
+static NOde noEdgesNode{};
+} // namespace
+
+
+
+auto NOde::nextRightwardTodoEdge(Angle prevAngle) noexcept -> EdgeRef
+{
+  assert(prevAngle.degrees() >= 0 && prevAngle.degrees() < 360);
+
+  int idx0 = reverseEdgeIndex(prevAngle.degrees() / 45);
+  int idx  = idx0;
+
+  while ((idx = (idx + 1) & 7) != idx0)
+    if (mEdges[idx] && !(mDone & (1u << idx)))
+      return edge(idx);
+
+  assert(!noEdgesNode.edge(0));
+  return noEdgesNode.edge(0);
+}
 
 
 
@@ -28,71 +127,60 @@ NOde& GRaph::operator[](Point p)
 NOde& GRaph::moveTo(int x, int y)
 {
   for (auto i = mNodes.begin(); i != mNodes.end(); ++i)
-    if (i->point().x == x && i->point().y == y)
-      return *(mCur = i);
+    if (i->x() == x && i->y() == y)
+      return *(mCurNode = &*i);
 
   mNodes.emplace_back(x, y);
-  return *(mCur = mNodes.end() - 1);
+  mCurNode = &mNodes.back();
+
+  return *mCurNode;
 }
 
 
 
 namespace {
-
-int edgeFromDxy(int dx, int dy)
+int signum(int x) noexcept
 {
-  if (dx < 0)
-    return dy < 0 ? 0 : dy > 0 ? 1 : 2;
-
-  if (dx > 0)
-    return dy < 0 ? 3 : dy > 0 ? 4 : 5;
-
-  return dy < 0 ? 6 : 7;
-}
-
-int dxFromEdge(int edge)
-{
-  constexpr int res[] = {-1, -1, -1, 1, 1, 1, 0, 0};
-  return res[edge];
-}
-
-int dyFromEdge(int edge)
-{
-  constexpr int res[] = {-1, +1, 0, -1, +1, 0, -1, +1};
-  return res[edge];
+  return x < 0 ? -1 : (x > 0);
 }
 } // namespace
 
 
 
-#include <cstdlib>
 NOde& GRaph::lineTo(int dx, int dy, Edge::Style style)
 {
   assert(dx == 0 || dy == 0 || abs(dx) == abs(dy));
+  assert(mCurNode);
 
-  int ddx = dx ? dx / abs(dx) : 0;
-  int ddy = dy ? dy / abs(dy) : 0;
-  int x   = mCur->point().x;
-  int y   = mCur->point().y;
-  int xe  = x + dx;
-  int ye  = y + dy;
+  int x    = mCurNode->x();
+  int y    = mCurNode->y();
+  int xe   = x + dx;
+  int ye   = y + dy;
+  dx       = signum(dx);
+  dy       = signum(dy);
+  int edge = edgeIndexFromDxDy(dx, dy);
+  int reve = reverseEdgeIndex(edge);
 
   while (x != xe || y != ye)
   {
-    mCur->edge(edgeFromDxy(ddx,ddy)).setStyle(style);
-    moveTo(x += ddx, y += ddy);
-    mCur->edge(edgeFromDxy(-ddx,-ddy)).setStyle(style);
+    mCurNode->edge(edge).setStyle(style);
+
+    x += dx;
+    y += dy;
+
+    moveTo(x, y);
+    mCurNode->edge(reve).setStyle(style);
   }
 
-  return *mCur;
+  return *mCurNode;
 }
 
 
 
-void GRaph::line(int x, int y, int dx, int dy, Edge::Style style)
+void GRaph::clearEdgesDone() noexcept
 {
-  moveTo(x, y);
-  lineTo(dx, dy, style);
+  for (auto& node: mNodes)
+    node.clearEdgesDone();
 }
 
 
@@ -109,6 +197,8 @@ void GRaph::dump(const char* fname) const
     xmax = std::max(xmax, node.point().x + 1);
     ymax = std::max(ymax, node.point().y + 1);
   }
+
+  qDebug("%ix%i", xmax, ymax);
 
   QImage img(QSize{xmax*5, ymax*5}, QImage::Format_RGB32);
   img.fill(Qt::white);

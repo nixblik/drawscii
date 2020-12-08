@@ -16,15 +16,41 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "common.h"
+#include "graph.h"
+#include <forward_list>
 #include <QPainterPath>
 
 
 
 class SHape
 {
+  friend struct Shapes; // FIXME: No friends
+
   public:
+    void moveTo(Point p);
+    void lineTo(Point p);
+    void arcTo(Point p, Point ctrl);
 
   private:
     QPainterPath mPath;
+    Point mPos;
 };
+
+
+
+struct Shapes
+{
+  using ShapeList = std::forward_list<SHape>;
+
+  ShapeList outer;
+  ShapeList inner;
+
+  void dump(const char* fname) const;
+};
+
+
+
+/// Analyzes the \a graph and finds all closed Shapes in it. A closed shape has
+/// lines all around it, and no arrows on the border.
+///
+Shapes findShapes(GRaph& graph);

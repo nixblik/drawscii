@@ -278,6 +278,7 @@ TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
 
 
 #include "main.h"
+#include "shapes.h"
 #include <fstream>
 
 int main(int argc, char* argv[])
@@ -300,7 +301,9 @@ try
   if (!wif.is_open()) throw std::system_error{errno, std::system_category(), "failed to open input file"};
   auto t2 = TextImage::read(wif, args.tabWidth);
   auto g2 = constructGraph(t2);
-  g2.dump("test.png");
+  g2.dump("test-graph.png");
+  auto s2 = findShapes(g2);
+  s2.dump("test-shapes.png");
   return 0;
   //-----------------------------------------------
 
