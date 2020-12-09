@@ -17,50 +17,44 @@
 */
 #include "render.h"
 #include "blur.h"
-#include "graph2.h"
-#include "hints.h"
-#include "paragraph.h"
-#include "textimg.h"
+#include "textimage.h"
 #include <QImage>
 #include <QPainter>
 
 
 
-struct Shape
-{
-  explicit Shape(QPainterPath p)
-    : path{std::move(p)}
-  {}
-
-  QPainterPath path;
-  QColor bg;
-};
-
-
-
-Render::Render(const Graph& graph, const TextImg& txt, const QFont& font, float lineWd)
+Render::Render(const TextImage& txt, const Graph& graph, const Shapes& shapes)
   : mTxt{txt},
     mGraph{graph},
-    mFont{font},
-    mSolidPen{Qt::black, static_cast<qreal>(lineWd)},
-    mDashedPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine},
+    mShapes{shapes},
     mBrush{Qt::black},
-    mDone{graph.width(), graph.height()},
     mShadowMode{Shadow::None},
     mAntialias{true}
 {
-  mDashedPen.setDashPattern({5, 3});
-  mShapePts.reserve(64);
-
   computeRenderParams();
-  findShapes();
-  findParagraphs();
 }
 
 
 
 Render::~Render()
 = default;
+
+
+
+void Render::setFont(const QFont& font)
+{
+  mFont = font;
+  computeRenderParams();
+}
+
+
+
+void Render::setLineWidth(float lineWd)
+{
+  mSolidPen  = QPen{Qt::black, static_cast<qreal>(lineWd)};
+  mDashedPen = QPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine};
+  mDashedPen.setDashPattern({5, 3});
+}
 
 
 
@@ -80,7 +74,6 @@ void Render::computeRenderParams()
   mScaleY = fm.height(); // TODO: Provide compression for x and y axis, but this depends on the font, so be careful
   mDeltaX = qRound(mScaleX * 0.5);
   mDeltaY = qRound(mScaleY * 0.5);
-  mRadius = qRound((mScaleX + mScaleY) * 0.33333);
   mShadowDelta = 2;
 
   auto& arrow = mArrows[0];
@@ -103,144 +96,15 @@ QSize Render::size() const noexcept
 { return QSize{mGraph.width() * mScaleX + mShadowDelta, mGraph.height() * mScaleY + mShadowDelta}; }
 
 
-inline QPoint Render::toImage(TextPos pos) const noexcept
+inline QPoint Render::toImage(Point pos) const noexcept
 { return QPoint{pos.x*mScaleX + mDeltaX, pos.y*mScaleY + mDeltaY}; }
 
 
-
+/*
 inline QRect Render::imageRect(const Paragraph& p) const noexcept
 {
   auto pt = p.topLeft();
   return QRect{pt.x*mScaleX, pt.y*mScaleY, p.width()*mScaleX, p.height()*mScaleY};
-}
-
-
-
-void Render::findShapes()
-{
-  mDone.clear();
-  for (int y = 0; y < mGraph.height(); ++y)
-  {
-    for (int x = 0; x < mGraph.width(); ++x)
-    {
-      auto node = mGraph(x,y);
-      if (node.kind() != Line)
-        continue;
-
-      if (node.edges() & ~mDone(x,y))
-        for (Direction dir = Left; dir != UpLeft; dir = turnedLeft45(dir))
-          if (node.edges() & ~mDone(x,y) & dir)
-            findShapeAt(TextPos{x, y}, dir);
-    }
-  }
-}
-
-
-
-void Render::findShapeAt(TextPos pos0, Direction dir0)
-{
-  mDone[pos0] |= dir0;
-  TextPos pos1 = pos0 + dir0;
-
-  if (mGraph[pos1].kind() == Arrow)
-    return;
-
-  mShapePts.clear();
-  mShapePts.emplace_back(pos0, Direction{}, 0);
-  mShapePts.emplace_back(pos1, dir0, 0);
-
-  while (mShapePts.size() > 1)
-  {
-    auto& cur  = mShapePts.back();
-    auto  node = mGraph[cur.pos];
-    auto  dir  = findNextShapeDir(node, cur.pos, cur.dir);
-
-    if (!dir)
-    {
-      mShapePts.pop_back();
-      continue;
-    }
-
-    // Check that new point is ok for shape
-    mDone[cur.pos] |= dir;
-    TextPos nextPos = cur.pos + dir;
-
-    if (mGraph[nextPos].kind() == Arrow)
-      continue;
-
-    // Check whether new point closes the shape
-    for (auto i = mShapePts.begin(); i != mShapePts.end(); ++i)
-    {
-      if (i->pos == nextPos)
-      {
-        registerShape(i, mShapePts.end(), cur.angle - i->angle);
-        mShapePts.erase(i + 1, mShapePts.end());
-        goto ContinueOuterLoop;
-      }
-    }
-
-    // Continue shape-finding at new point
-    mShapePts.emplace_back(nextPos, dir, cur.angle + angle(cur.dir, dir));
-  ContinueOuterLoop:;
-  }
-}
-
-
-
-Direction Render::findNextShapeDir(Node node, TextPos pos, Direction lastDir)
-{
-  if (node.kind() == Round)
-  {
-    auto dir = mGraph.walkCorner(lastDir, pos, mTxt[pos]);
-    if (node.edges() & ~mDone[pos] & dir)
-      return dir;
-  }
-  else if (node.kind() == Line)
-  {
-    auto rdir  = opposite(lastDir);
-    auto edges = node.edges() & ~mDone[pos];
-
-    for (auto dir = turnedLeft45(rdir); dir != rdir; dir = turnedLeft45(dir))
-      if (edges & dir)
-        return dir;
-  }
-  else
-    Q_UNREACHABLE(); // GCOV_EXCL_LINE
-
-  return Direction{};
-}
-
-
-
-void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle)
-{
-  QPainterPath path;
-  path.moveTo(toImage(begin->pos));
-  int dashCt = 0;
-
-  for (auto i = begin + 1; i != end; ++i)
-  {
-    auto node = mGraph[i->pos];
-    dashCt   += node.isDashed();
-
-    if (node.kind() == Round)
-    {
-      QPoint pt = toImage(i->pos);
-      QPoint r1 = QPoint{deltaX(i->dir), deltaY(i->dir)} * mRadius;
-      auto   d2 = mGraph.walkCorner(i->dir, i->pos, mTxt[i->pos]);
-      QPoint r2 = QPoint{deltaX(d2), deltaY(d2)} * mRadius;
-
-      path.lineTo(pt - r1);
-      path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
-    }
-    else
-      path.lineTo(toImage(i->pos));
-  }
-
-  if (angle < 0)
-    mShapes.emplace_back(path.simplified());
-  else if (dashCt * 4 < end - begin)
-    mShadows.emplace_back(path.simplified().translated(mShadowDelta, mShadowDelta));
 }
 
 
@@ -327,6 +191,7 @@ void Render::apply(const Hints& hints)
         para.color = shape.bg.isValid() && shape.bg.lightness() < 100 ? Qt::white : Qt::black;
   }
 }
+*/
 
 
 
@@ -338,7 +203,7 @@ void Render::paint(QPaintDevice* dev)
     shadowImg = QImage{size(), QImage::Format_Alpha8};
     shadowImg.fill(Qt::transparent);
     mPainter.begin(&shadowImg);
-    drawShapes(mShadows, Qt::black);
+    drawShapes(mShapes.outer, Qt::black, mShadowDelta);
     mPainter.end();
   }
 
@@ -361,7 +226,7 @@ void Render::paint(QPaintDevice* dev)
       break;
 
     case Shadow::Simple:
-      drawShapes(mShadows, Qt::lightGray);
+      drawShapes(mShapes.outer, Qt::lightGray, mShadowDelta);
       break;
 
     case Shadow::Blurred:
@@ -370,25 +235,29 @@ void Render::paint(QPaintDevice* dev)
       break;
   }
 
-  drawShapes(mShapes, Qt::white);
+  drawShapes(mShapes.inner, Qt::white, 0);
   drawLines();
-  drawParagraphs();
+//drawParagraphs();
 
   mPainter.end();
 }
 
 
 
-void Render::drawShapes(const ShapeList& shapes, const QColor& defaultColor)
+void Render::drawShapes(const Shapes::List& shapes, const QColor& defaultColor, int delta)
 {
   QPen pen{mSolidPen};
   for (auto& shape: shapes)
   {
-    auto color = shape.bg.isValid() ? shape.bg : defaultColor;
+    auto path = shape.path(mScaleX, mScaleY);
+    if (delta)
+      path.translate(delta, delta);
+
+    auto color = shape.color.isValid() ? shape.color : defaultColor;
     pen.setColor(color);
     mPainter.setPen(pen);
     mPainter.setBrush(color);
-    mPainter.drawPath(shape.path);
+    mPainter.drawPath(path);
   }
 }
 
@@ -396,25 +265,25 @@ void Render::drawShapes(const ShapeList& shapes, const QColor& defaultColor)
 
 void Render::drawLines()
 {
-  mDone.clear();
-  for (int y = 0; y < mGraph.height(); ++y)
-  {
-    for (int x = 0; x < mGraph.width(); ++x)
-    {
-      auto node = mGraph(x,y);
-      if (node.edges() & ~mDone(x,y) & (Right|DownRight|Down|DownLeft))
-        for (Direction dir = Right; dir != Left; dir = turnedRight45(dir))
-          if (node.edges() & ~mDone(x,y) & dir)
-            drawLineFrom(TextPos{x, y}, dir);
+  mPainter.setBrush(Qt::NoBrush);
 
-      if (node.kind() == Arrow)
-        drawArrow(TextPos{x, y});
+  for (auto& line: mShapes.lines)
+  {
+    switch (line.style)
+    {
+      case Edge::Weak:
+      case Edge::Solid:  mPainter.setPen(mSolidPen); break;
+      case Edge::Double: mPainter.setPen(mSolidPen); break; // FIXME: Double lines could be done by drawing a thick black line, then a thin white line
+      case Edge::Dashed: mPainter.setPen(mDashedPen); break;
+      case Edge::None:   assert(false);
     }
+
+    mPainter.drawPath(line.path(mScaleX, mScaleY));
   }
 }
 
 
-
+/*
 void Render::drawLineFrom(TextPos pos0, Direction dir)
 {
   auto revDir = opposite(dir);
@@ -551,3 +420,4 @@ void Render::drawParagraphs()
     }
   }
 }
+*/

@@ -18,22 +18,39 @@
 #include "graph.h"
 #include "shapes.h"
 #include <cmath>
-#include <vector>
+#include <QPainterPath>
+
+
+
+struct Shape::Element
+{
+  Element(Point np, ElementKind k) noexcept;
+
+  Point p;
+  ElementKind kind;
+};
+
+
+
+inline Shape::Element::Element(Point np, ElementKind k) noexcept
+  : p{np},
+    kind{k}
+{}
 
 
 
 struct ShapePoint
 {
-  ShapePoint(NOde* n, Angle a, Angle as) noexcept;
+  ShapePoint(Node* n, Angle a, Angle as) noexcept;
 
-  NOde* node;
+  Node* node;
   Angle angle;
   Angle angleSum;
 };
 
 
 
-inline ShapePoint::ShapePoint(NOde* n, Angle a, Angle as) noexcept
+inline ShapePoint::ShapePoint(Node* n, Angle a, Angle as) noexcept
   : node{n},
     angle{a},
     angleSum{as}
@@ -46,21 +63,24 @@ class ShapeFinder
   using ShapePoints = std::vector<ShapePoint>;
 
   public:
-    ShapeFinder(GRaph& graph) noexcept;
+    ShapeFinder(Graph& graph) noexcept;
     Shapes findShapes();
 
   private:
-    void findShapeAt(NOde::EdgeRef edge0);
-    void addShape(ShapePoints::const_iterator begin, ShapePoints::const_iterator end, Angle angle);
+    void findClosedShapes();
+    void findClosedShapeAt(Node::EdgeRef edge0);
+    void addClosedShape(ShapePoints::const_iterator begin, ShapePoints::const_iterator end, Angle angle);
+    void findLines();
+    void findLineAt(Node::EdgeRef edge0);
 
-    GRaph& mGraph;
+    Graph& mGraph;
     ShapePoints mShapePts;
     Shapes mShapes;
 };
 
 
 
-Shapes findShapes(GRaph& graph)
+Shapes findShapes(Graph& graph)
 {
   ShapeFinder finder{graph};
   return finder.findShapes();
@@ -68,7 +88,7 @@ Shapes findShapes(GRaph& graph)
 
 
 
-ShapeFinder::ShapeFinder(GRaph& graph) noexcept
+ShapeFinder::ShapeFinder(Graph& graph) noexcept
   : mGraph{graph}
 {}
 
@@ -76,43 +96,46 @@ ShapeFinder::ShapeFinder(GRaph& graph) noexcept
 
 Shapes ShapeFinder::findShapes()
 {
-  for (auto& node: mGraph)
-  {
-    if (node.edgesAllDone())
-      continue;
-
-    if (node.form() != NOde::Straight)
-      continue;
-
-    for (int i = 0, endi = node.numberOfEdges(); i < endi; ++i)
-    {
-      auto edge = node.edge(i);
-      if (edge.todo())
-        findShapeAt(edge);
-    }
-  }
-
+  findClosedShapes();
   mGraph.clearEdgesDone();
-  mShapes.outer.reverse();
-  mShapes.inner.reverse();
+  findLines();
+
   return std::move(mShapes);
 }
 
 
 
-void ShapeFinder::findShapeAt(NOde::EdgeRef edge0)
+void ShapeFinder::findClosedShapes()
+{
+  for (auto& node: mGraph)
+  {
+    if (node.edgesAllDone() || node.form() != Node::Straight)
+      continue;
+
+    for (int i = 0, endi = node.numberOfEdges(); i < endi; ++i)
+      if (auto edge = node.edge(i))
+        if (!edge.done())
+          findClosedShapeAt(edge);
+  }
+
+  mShapes.outer.reverse();
+  mShapes.inner.reverse();
+}
+
+
+
+void ShapeFinder::findClosedShapeAt(Node::EdgeRef edge0)
 {
   edge0.setDone();
   auto node1 = &mGraph[edge0.target()];
 
-  if (node1->mark() >= NOde::RightArrow) // FIXME: Reconsider arrow handling, and improve this conditional
+  if (node1->mark() >= Node::RightArrow) // FIXME: Reconsider arrow handling, and improve this conditional
     return;
 
   mShapePts.clear();
   mShapePts.emplace_back(edge0.source(), Angle{0}, Angle{0});
   mShapePts.emplace_back(node1, edge0.angle(), Angle{0});
 
-qDebug("%i/%i and %i/%i", edge0.source()->x(), edge0.source()->y(), node1->x(), node1->y());
   while (mShapePts.size() > 1)
   {
     auto& cur  = mShapePts.back();
@@ -120,7 +143,6 @@ qDebug("%i/%i and %i/%i", edge0.source()->x(), edge0.source()->y(), node1->x(), 
 
     if (!edge)
     {
-qDebug("  backtrack");
       mShapePts.pop_back();
       continue;
     }
@@ -129,9 +151,8 @@ qDebug("  backtrack");
     edge.setDone();
     auto nextNode  = &mGraph[edge.target()];
     auto nextAngle = edge.angle();
-qDebug(" -> %i/%i angle=%i (sum was %i)", nextNode->x(), nextNode->y(), nextAngle.degrees(), cur.angleSum);
 
-    if (nextNode->mark() >= NOde::RightArrow) // FIXME: Reconsider arrow handling, and improve this conditional
+    if (nextNode->mark() >= Node::RightArrow) // FIXME: Reconsider arrow handling, and improve this conditional
       continue;
 
     // Check whether new point closes the shape
@@ -139,7 +160,7 @@ qDebug(" -> %i/%i angle=%i (sum was %i)", nextNode->x(), nextNode->y(), nextAngl
     {
       if (i->node == nextNode)
       {
-        addShape(i, mShapePts.end(), cur.angleSum - i->angleSum);
+        addClosedShape(i, mShapePts.end(), cur.angleSum - i->angleSum);
         mShapePts.erase(i + 1, mShapePts.end());
         goto ContinueOuterLoop;
       }
@@ -153,9 +174,9 @@ qDebug(" -> %i/%i angle=%i (sum was %i)", nextNode->x(), nextNode->y(), nextAngl
 
 
 
-void ShapeFinder::addShape(ShapePoints::const_iterator begin, ShapePoints::const_iterator end, Angle angle)
+void ShapeFinder::addClosedShape(ShapePoints::const_iterator begin, ShapePoints::const_iterator end, Angle angle)
 {
-  SHape shape;
+  Shape shape;
   shape.moveTo(begin->node->point());
   int dashCt = 0;
 
@@ -164,7 +185,7 @@ void ShapeFinder::addShape(ShapePoints::const_iterator begin, ShapePoints::const
     // FIXME: dashCt
 
     auto node = i->node;
-    if (node->form() == NOde::Bezier)
+    if (node->form() == Node::Bezier)
     {
       assert(i + 1 != end);
       auto next = (++i)->node;
@@ -174,8 +195,7 @@ void ShapeFinder::addShape(ShapePoints::const_iterator begin, ShapePoints::const
       shape.lineTo(node->point());
   }
 
-qDebug("add shape %li points angle=%i", end - begin, angle.degrees());
-
+  shape.done(); // FIXME: Is that faster??
   if (angle.degrees() < 0)
     mShapes.inner.emplace_front(std::move(shape));
   else
@@ -184,83 +204,158 @@ qDebug("add shape %li points angle=%i", end - begin, angle.degrees());
 
 
 
-void SHape::moveTo(Point p)
+void ShapeFinder::findLines()
 {
-  mPath.moveTo(p.x, p.y);
-  mPos = p;
+  for (auto& node: mGraph)
+  {
+    if (node.edgesAllDone() || node.form() != Node::Straight)
+      continue;
+
+    for (int i = 0, endi = node.numberOfEdges(); i < endi; ++i)
+      if (auto edge = node.edge(i))
+        if (!edge.done())
+          findLineAt(edge);
+  }
 }
 
 
 
-void SHape::lineTo(Point p)
+void ShapeFinder::findLineAt(Node::EdgeRef edge0)
 {
-  mPath.lineTo(p.x, p.y);
-  mPos = p;
+  Shape shape;
+  shape.moveTo(edge0.source()->point());
+
+  auto curEdge = edge0;
+  auto style   = edge0.style();
+
+  while (!curEdge.done())
+  {
+    curEdge.setDone();
+
+    auto curTarget = &mGraph[curEdge.target()];
+    curTarget->reverseEdge(curEdge).setDone();
+
+    // Follow the line to the next edge and check that we can draw on
+    auto nextEdge = curTarget->continueLine(curEdge);
+    if (!nextEdge)
+      break;
+
+    auto nextStyle = nextEdge.style();
+    if (style == Edge::Weak)
+      style = nextStyle;
+    else if (style != nextStyle && nextStyle != Edge::Weak)
+      break;
+
+    // Only curved corners have to be drawn, otherwise lines are straight
+    if (curTarget->form() == Node::Bezier)
+    {
+      shape.lineTo(curEdge.source()->point());
+      shape.arcTo(nextEdge.target(), curTarget->point());
+    }
+
+    curEdge = nextEdge;
+  }
+
+  shape.lineTo(curEdge.target());
+  shape.done();
+  shape.style = style;
+
+  mShapes.lines.emplace_front(std::move(shape));
 }
+
+
+
+inline Shape::Shape() noexcept
+  : style{Edge::Solid}
+{}
+
+
+Shape::~Shape()
+= default;
+
+
+void Shape::moveTo(Point p)
+{ mPath.emplace_back(p, Move); }
+
+
+
+void Shape::lineTo(Point p)
+{
+  assert(!mPath.empty());
+
+  // Attempt to merge straight lines
+  if (mPath.back().kind == Line)
+  {
+    const auto& p0 = (mPath.end() - 2)->p;
+    const auto& p1 = mPath.back().p;
+
+    if ((p1.x - p0.x) * (p.y - p1.y) == (p.x - p1.x) * (p1.y - p0.y))
+    {
+      mPath.back().p = p;
+      return;
+    }
+  }
+
+  mPath.emplace_back(p, Line);
+}
+
+
+
+void Shape::arcTo(Point tgt, Point ctrl)
+{
+  assert(!mPath.empty());
+  mPath.emplace_back(ctrl, Arc);
+  mPath.emplace_back(tgt, Arc);
+}
+
+
+
+void Shape::done()
+{ mPath.shrink_to_fit(); }
 
 
 
 namespace {
-
 inline double length(const QPointF& p) noexcept
 { return sqrt(p.x()*p.x() + p.y()*p.y()); }
-
-
-inline QPointF operator+(const Point& p1, const QPointF& p2) noexcept
-{ return QPointF{p1.x + p2.x(), p1.y + p2.y()}; }
-
 } // namespace
 
 
 
-void SHape::arcTo(Point tgt, Point ctrl)
+QPainterPath Shape::path(int xScale, int yScale) const
 {
-  QPointF r1(mPos.x - ctrl.x, mPos.y - ctrl.y);
-  QPointF r2(tgt.x  - ctrl.x, tgt.y  - ctrl.y);
+  auto scaled = [=](Point p) -> QPointF
+  { return QPointF(p.x * xScale, p.y * yScale); };
 
-  auto l1 = length(r1);
-  auto l2 = length(r2);
-  auto r  = std::min(1.0, std::min(l1, l2));
+  QPainterPath result;
+  for (auto i = mPath.begin(); i != mPath.end(); ++i)
+  {
+    auto pi = scaled(i->p);
+    switch (i->kind)
+    {
+      case Move: result.moveTo(pi); continue;
+      case Line: result.lineTo(pi); continue;
 
-  assert(r > 0);
-  r1 *= r/l1;
-  r2 *= r/l2;
+      case Arc: {
+        // Draw a Bézier curve that approximates a circle
+        auto p2 = scaled((++i)->p);
+        auto r1 = result.currentPosition() - pi;
+        auto r2 = p2 - pi;
+        auto l1 = length(r1);
+        auto l2 = length(r2);
+        auto r  = std::min(1.0, std::min(l1, l2));
 
-  mPath.lineTo(ctrl + r1);
-  mPath.cubicTo(ctrl + r1 * 0.44771525, ctrl + r2 * 0.44771525, ctrl + r2);
-  mPath.lineTo(tgt.x, tgt.y);
-  mPos = tgt;
-}
+        assert(r > 0);
+        r1 *= r/l1;
+        r2 *= r/l2;
 
+        result.lineTo(pi + r1);
+        result.cubicTo(pi + r1 * 0.44771525, pi + r2 * 0.44771525, pi + r2);
+        result.lineTo(p2);
+        continue;
+      }
+    }
+  }
 
-
-#include <QtDebug>
-#include <QImage>
-#include <QPainter>
-void Shapes::dump(const char* fname) const
-{
-  QRect size{};
-  for (auto& path: outer)
-    size = size.united(path.mPath.controlPointRect().toRect());
-
-  qDebug() << size;
-  if (size.isEmpty())
-    return;
-
-  QImage img(QSize{(size.right()+5)*5, (size.bottom()+5)*5}, QImage::Format_RGB32);
-  img.fill(Qt::white);
-
-  QPainter pa;
-  pa.begin(&img);
-  pa.scale(5, 5);
-  pa.setPen(QPen(Qt::red, 3));
-  for (auto& path: outer)
-    pa.drawPath(path.mPath.simplified());
-
-  pa.setPen(QPen(Qt::black, 1));
-  for (auto& path: inner)
-    pa.drawPath(path.mPath.simplified());
-
-  pa.end();
-  img.save(fname);
+  return result;
 }

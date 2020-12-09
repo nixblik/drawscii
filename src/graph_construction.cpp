@@ -47,30 +47,30 @@ bool operator==(wchar_t ch, const OneOf& haystack) noexcept
 class GraphConstructor
 {
   public:
-    GraphConstructor(TextImage& text, GRaph& graph) noexcept;
+    GraphConstructor(TextImage& text, Graph& graph) noexcept;
     void createSomeEdges();
     void createMoreEdges();
 
   private:
-    void createCorner(int x, int y, int dx, int dy, NOde::Form form);
+    void createCorner(int x, int y, int dx, int dy, Node::Form form);
     void createLeapfrog(int x, int y, int dx);
     void createHorzLine(int x, int y, Edge::Style style);
     void createVertLine(int x, int y, Edge::Style style);
     void createDiagLine(int x, int y, int dx, Edge::Style style);
-    void createHorzJunction(int x, int y, NOde::Mark mark);
-    void createVertJunction(int x, int y, NOde::Mark mark);
-    void createJunction(int x, int y, NOde::Mark mark);
-    bool createJunctionTo(int x, int y, NOde::Mark mark, int dx, int dy, const OneOf& oneOfThem);
+    void createHorzJunction(int x, int y, Node::Mark mark);
+    void createVertJunction(int x, int y, Node::Mark mark);
+    void createJunction(int x, int y, Node::Mark mark);
+    bool createJunctionTo(int x, int y, Node::Mark mark, int dx, int dy, const OneOf& oneOfThem);
 
     TextImage& mText;
-    GRaph& mGraph;
+    Graph& mGraph;
 };
 
 
 
-GRaph constructGraph(TextImage& text)
+Graph constructGraph(TextImage& text)
 {
-  GRaph graph;
+  Graph graph;
   GraphConstructor creator{text, graph};
 
   creator.createSomeEdges();
@@ -81,7 +81,7 @@ GRaph constructGraph(TextImage& text)
 
 
 
-inline GraphConstructor::GraphConstructor(TextImage& text, GRaph& graph) noexcept
+inline GraphConstructor::GraphConstructor(TextImage& text, Graph& graph) noexcept
   : mText{text},
     mGraph{graph}
 {}
@@ -109,27 +109,27 @@ void GraphConstructor::createSomeEdges()
       switch (mText(x, y))
       {
         case '/':
-          createCorner(x, y, +1, +1, NOde::Straight);
-          createCorner(x, y, -1, -1, NOde::Straight);
+          createCorner(x, y, +1, +1, Node::Straight);
+          createCorner(x, y, -1, -1, Node::Straight);
           break;
 
         case '\\':
-          createCorner(x, y, +1, -1, NOde::Straight);
-          createCorner(x, y, -1, +1, NOde::Straight);
+          createCorner(x, y, +1, -1, Node::Straight);
+          createCorner(x, y, -1, +1, Node::Straight);
           break;
 
         case '.':
-          createCorner(x, y, +1, +1, NOde::Bezier);
-          createCorner(x, y, -1, +1, NOde::Bezier);
+          createCorner(x, y, +1, +1, Node::Bezier);
+          createCorner(x, y, -1, +1, Node::Bezier);
           break;
 
         case '\'':
-          createCorner(x, y, +1, -1, NOde::Bezier);
-          createCorner(x, y, -1, -1, NOde::Bezier);
+          createCorner(x, y, +1, -1, Node::Bezier);
+          createCorner(x, y, -1, -1, Node::Bezier);
           break;
 
-        case ',': createCorner(x, y, +1, +1, NOde::Bezier); break;
-        case '`': createCorner(x, y, +1, -1, NOde::Bezier); break;
+        case ',': createCorner(x, y, +1, +1, Node::Bezier); break;
+        case '`': createCorner(x, y, +1, -1, Node::Bezier); break;
 
         case ')': createLeapfrog(x, y, +1); break;
         case '(': createLeapfrog(x, y, -1); break;
@@ -140,7 +140,7 @@ void GraphConstructor::createSomeEdges()
 
 
 
-void GraphConstructor::createCorner(int x, int y, int dx, int dy, NOde::Form form)
+void GraphConstructor::createCorner(int x, int y, int dx, int dy, Node::Form form)
 {
   if (mText(x+dx, y) == OneOf{L"-=+"})
   {
@@ -151,7 +151,7 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, NOde::Form for
       mText.drawing(x, y+dy) = true;
 
       mGraph.moveTo(2*x, 2*y+dy);
-      if (form != NOde::Straight)
+      if (form != Node::Straight)
       {
         mGraph.lineTo(+0, -dy, Edge::Weak).setForm(form);
         mGraph.lineTo(+dx, +0, Edge::Weak);
@@ -160,7 +160,7 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, NOde::Form for
         mGraph.lineTo(+dx, -dy, Edge::Weak);
     }
 
-    if (form == NOde::Bezier && mText(x-dx,y+dy) == (dx*dy > 0 ? '/' : '\\'))
+    if (form == Node::Bezier && mText(x-dx,y+dy) == (dx*dy > 0 ? '/' : '\\'))
     {
       mText.drawing(x, y)       = true;
       mText.drawing(x+dx, y)    = true;
@@ -189,7 +189,7 @@ void GraphConstructor::createLeapfrog(int x, int y, int dx)
       mText.drawing(x,   y+1) = true;
 
       mGraph.moveTo(2*x, 2*y-1);
-      mGraph.lineTo(+dx, +1, Edge::Solid).setForm(NOde::Bezier);
+      mGraph.lineTo(+dx, +1, Edge::Solid).setForm(Node::Bezier);
       mGraph.lineTo(-dx, +1, Edge::Solid);
 
       mGraph.moveTo(2*x-1, 2*y);
@@ -230,15 +230,15 @@ void GraphConstructor::createMoreEdges()
         case '/': createDiagLine(x, y, -1, Edge::Solid); break;
         case '\\':createDiagLine(x, y, +1, Edge::Solid); break;
 
-        case '<': createHorzJunction(x, y, NOde::LeftArrow); break;
-        case '>': createHorzJunction(x, y, NOde::RightArrow); break;
-        case '^': createVertJunction(x, y, NOde::UpArrow); break;
+        case '<': createHorzJunction(x, y, Node::LeftArrow); break;
+        case '>': createHorzJunction(x, y, Node::RightArrow); break;
+        case '^': createVertJunction(x, y, Node::UpArrow); break;
         case 'v':
-        case 'V': createVertJunction(x, y, NOde::DownArrow); break;
+        case 'V': createVertJunction(x, y, Node::DownArrow); break;
 
-        case '+': createJunction(x, y, NOde::NoMark); break;
-        case '*': createJunction(x, y, NOde::FilledCircle); break;
-        case 'o': createJunction(x, y, NOde::EmptyCircle); break;
+        case '+': createJunction(x, y, Node::NoMark); break;
+        case '*': createJunction(x, y, Node::FilledCircle); break;
+        case 'o': createJunction(x, y, Node::EmptyCircle); break;
       }
     }
   }
@@ -312,7 +312,7 @@ void GraphConstructor::createDiagLine(int x, int y, int dx, Edge::Style style)
 
 
 
-void GraphConstructor::createHorzJunction(int x, int y, NOde::Mark mark)
+void GraphConstructor::createHorzJunction(int x, int y, Node::Mark mark)
 {
   auto& drawing = mText.drawing(x, y);
   if (drawing)
@@ -334,9 +334,9 @@ void GraphConstructor::createHorzJunction(int x, int y, NOde::Mark mark)
 
 
 
-void GraphConstructor::createVertJunction(int x, int y, NOde::Mark mark)
+void GraphConstructor::createVertJunction(int x, int y, Node::Mark mark)
 {
-  if (mark == NOde::DownArrow && mText.isPartOfWord(x, y))
+  if (mark == Node::DownArrow && mText.isPartOfWord(x, y))
     return;
 
   auto& drawing = mText.drawing(x, y);
@@ -359,9 +359,9 @@ void GraphConstructor::createVertJunction(int x, int y, NOde::Mark mark)
 
 
 
-void GraphConstructor::createJunction(int x, int y, NOde::Mark mark)
+void GraphConstructor::createJunction(int x, int y, Node::Mark mark)
 {
-  if (mark == NOde::EmptyCircle && mText.isPartOfWord(x, y))
+  if (mark == Node::EmptyCircle && mText.isPartOfWord(x, y))
     return;
 
   auto& drawing = mText.drawing(x, y);
@@ -382,7 +382,7 @@ void GraphConstructor::createJunction(int x, int y, NOde::Mark mark)
 
 
 
-inline bool GraphConstructor::createJunctionTo(int x, int y, NOde::Mark mark, int dx, int dy, const OneOf& oneOfThem)
+inline bool GraphConstructor::createJunctionTo(int x, int y, Node::Mark mark, int dx, int dy, const OneOf& oneOfThem)
 {
   if (mText(x+dx, y+dy) == oneOfThem)
   {

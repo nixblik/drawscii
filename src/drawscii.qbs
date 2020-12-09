@@ -22,23 +22,14 @@ QtApplication {
         "blur.cpp",
         "blur.h",
         "common.h",
-        "direction.cpp",
-        "direction.h",
         "flags.h",
         "graph.cpp",
         "graph.h",
-        "graph2.cpp",
-        "graph2.h",
         "graph_construction.cpp",
-        "hints.cpp",
-        "hints.h",
         "main.cpp",
         "main.h",
-        "matrix.h",
         "outputfile.cpp",
         "outputfile.h",
-        "paragraph.cpp",
-        "paragraph.h",
         "render.cpp",
         "render.h",
         "runtimeerror.cpp",
@@ -47,10 +38,19 @@ QtApplication {
         "shapes.h",
         "textimage.cpp",
         "textimage.h",
-        "textimg.cpp",
-        "textimg.h",
-        "textpos.h",
     ]
+
+  Group {
+    name: "Old files"
+    fileTags: []
+    overrideTags: true
+    files: [
+      "graph2.cpp",
+      "hints.cpp",
+      "paragraph.cpp",
+      "paragraph.h",
+    ]
+  }
 
   Depends { name:"Qt"; submodules:["core","gui","svg"] }
   Depends { name:"coverage" }

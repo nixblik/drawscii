@@ -105,7 +105,7 @@ class Edge
 
 /// A node in a planar Graph.
 ///
-class NOde
+class Node
 {
   public:
     class EdgeRef;
@@ -119,19 +119,19 @@ class NOde
     };
 
     /// \internal
-    constexpr NOde() noexcept;
+    constexpr Node() noexcept;
 
     /// \internal
-    NOde(int x, int y);
+    Node(int x, int y);
 
-    NOde(NOde&&) noexcept
+    Node(Node&&) noexcept
     =default;
 
-    NOde& operator=(NOde&&) noexcept
+    Node& operator=(Node&&) noexcept
     =default;
 
-    NOde(const NOde&) =delete;
-    NOde& operator=(const NOde&) =delete;
+    Node(const Node&) =delete;
+    Node& operator=(const Node&) =delete;
 
     int x() const noexcept
     { return mX; }
@@ -160,6 +160,8 @@ class NOde
     ConstEdgeRef edge(int idx) const noexcept;
     EdgeRef edge(int idx) noexcept;
     EdgeRef nextRightwardTodoEdge(Angle prevAngle) noexcept;
+    EdgeRef reverseEdge(const ConstEdgeRef& edge) noexcept;
+    EdgeRef continueLine(const ConstEdgeRef& prevEdge) noexcept;
 
     bool edgesAllDone() const noexcept
     { return mDone == 0xFF; }
@@ -178,12 +180,12 @@ class NOde
 
 
 
-class NOde::ConstEdgeRef
+class Node::ConstEdgeRef
 {
   public:
     using Style = Edge::Style;
 
-    ConstEdgeRef(const NOde* node, int index) noexcept
+    ConstEdgeRef(const Node* node, int index) noexcept
       : mNode{node},
         mIndex{index}
     {}
@@ -194,7 +196,7 @@ class NOde::ConstEdgeRef
     Style style() const noexcept
     { return mNode->mEdges[mIndex].style(); }
 
-    const NOde* source() const noexcept
+    const Node* source() const noexcept
     { return mNode; }
 
     Point target() const noexcept;
@@ -204,34 +206,31 @@ class NOde::ConstEdgeRef
     Angle angle() const noexcept
     { return Angle{mIndex * 45}; }
 
-    bool done() const noexcept
+    bool done() const noexcept // FIXME: Too expensive. Start out by marking only edges todo that exist. Then the test will be much quicker in Node::allEdgesDone()
     { return mNode->mDone & (1u << mIndex); }
 
-    bool todo() const noexcept
-    { return style() != Edge::None && !done(); } // FIXME: Too expensive. Start out by marking only edges todo that exist. Then the test will be much quicker in Node::allEdgesDone()
-
-  protected:
+    /// \internal
     int index() const noexcept
     { return mIndex; }
 
   private:
-    const NOde* mNode;
+    const Node* mNode;
     int mIndex;
 };
 
 
 
-class NOde::EdgeRef : public NOde::ConstEdgeRef
+class Node::EdgeRef : public Node::ConstEdgeRef
 {
   public:
     using Style = Edge::Style;
 
-    EdgeRef(NOde* node, int index) noexcept
+    EdgeRef(Node* node, int index) noexcept
       : ConstEdgeRef{node, index}
     {}
 
-    NOde* source() noexcept
-    { return const_cast<NOde*>(ConstEdgeRef::source()); }
+    Node* source() noexcept
+    { return const_cast<Node*>(ConstEdgeRef::source()); }
 
     void setStyle(Style style) noexcept
     { source()->mEdges[index()].setStyle(style); }
@@ -242,34 +241,45 @@ class NOde::EdgeRef : public NOde::ConstEdgeRef
 
 
 
-inline auto NOde::edge(int idx) const noexcept -> ConstEdgeRef
+inline auto Node::edge(int idx) const noexcept -> ConstEdgeRef
 { return {this, idx}; }
 
-inline auto NOde::edge(int idx) noexcept -> EdgeRef
+inline auto Node::edge(int idx) noexcept -> EdgeRef
 { return {this, idx}; }
 
 
 
-class GRaph
+class Graph
 {
   public:
-    NOde* begin() noexcept
+    Graph() noexcept;
+
+    Node* begin() noexcept
     { return &*mNodes.begin(); }
 
-    NOde* end() noexcept
+    Node* end() noexcept
     { return &*mNodes.end(); }
 
-    const NOde& operator[](Point p) const;
-    NOde& operator[](Point p);
+    int width() const noexcept
+    { return mRight - mLeft + 1; }
 
-    NOde& moveTo(int x, int y);
-    NOde& lineTo(int dx, int dy, Edge::Style style);
+    int height() const noexcept
+    { return mBottom - mTop + 1; }
+
+    const Node& operator[](Point p) const;
+    Node& operator[](Point p);
+    Node& moveTo(int x, int y);
+    Node& lineTo(int dx, int dy, Edge::Style style);
     void clearEdgesDone() noexcept;
     void dump(const char* fname) const;
 
   private:
-    using Nodes = std::vector<NOde>; // FIXME: Not optimal at all, use hashmap; approximate size from number of chars in TextImage
+    using Nodes = std::vector<Node>; // FIXME: Not optimal at all, use hashmap; approximate size from number of chars in TextImage
 
     Nodes mNodes;
-    NOde* mCurNode;
+    Node* mCurNode;
+    int mLeft;
+    int mRight;
+    int mTop;
+    int mBottom;
 };

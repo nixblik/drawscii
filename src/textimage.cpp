@@ -45,7 +45,6 @@ TextImage TextImage::read(std::wistream& in, uint tabWidth)
   std::wstring spaces(tabWidth, L' ');
   std::wstring line;
 
-  // FIXME: Before call to read, check in.is_open()
   while (std::getline(in, line))
   {
     replace_all(line, '\t', spaces);

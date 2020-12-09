@@ -18,32 +18,43 @@
 #pragma once
 #include "graph.h"
 #include <forward_list>
-#include <QPainterPath>
+#include <vector>
+#include <QColor>
+class QPainterPath;
 
 
 
-class SHape
+class Shape
 {
-  friend struct Shapes; // FIXME: No friends
-
   public:
+    Shape() noexcept;
+    ~Shape();
+
     void moveTo(Point p);
     void lineTo(Point p);
     void arcTo(Point p, Point ctrl);
+    void done();
+
+    QPainterPath path(int xScale, int yScale) const;
+    QColor color;
+    Edge::Style style;
 
   private:
-    QPainterPath mPath;
-    Point mPos;
+    enum ElementKind { Move, Line, Arc };
+    struct Element;
+
+    std::vector<Element> mPath;
 };
 
 
 
 struct Shapes
 {
-  using ShapeList = std::forward_list<SHape>;
+  using List = std::forward_list<Shape>;
 
-  ShapeList outer;
-  ShapeList inner;
+  List outer;
+  List inner;
+  List lines;
 
   void dump(const char* fname) const;
 };
@@ -53,4 +64,4 @@ struct Shapes
 /// Analyzes the \a graph and finds all closed Shapes in it. A closed shape has
 /// lines all around it, and no arrows on the border.
 ///
-Shapes findShapes(GRaph& graph);
+Shapes findShapes(Graph& graph);

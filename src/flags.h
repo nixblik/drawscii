@@ -22,7 +22,7 @@
 
 
 template<typename T>
-class Flags
+class Flags // FIXME: See whether still needed
 {
   static_assert(std::is_enum<T>::value, "Flags template parameter must be an enum");
   using Base = typename std::underlying_type<T>::type;

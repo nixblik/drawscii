@@ -15,13 +15,13 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "graph2.h"
-#include "hints.h"
+#include "main.h"
 #include "outputfile.h"
 #include "render.h"
 #include "runtimeerror.h"
-#include "textimg.h"
+#include "shapes.h"
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <QCommandLineParser>
 #include <QDir>
@@ -259,27 +259,17 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
 
 
 
-TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
+TextImage readTextImage(QString fname, QTextCodec*, int tabWidth) // FIXME: Codec
 {
-  QFile fd{fname};
-  if (!fd.open(QFile::ReadOnly))
-    throw RuntimeError{fname, ": ", fd.errorString()};
+  std::wifstream wif{fname.toStdString()};
+  if (!wif.is_open())
+    throw std::system_error{errno, std::system_category(), "failed to open input file"};
 
-  QTextStream in{&fd};
-  if (codec)
-    in.setCodec(codec);
-
-  TextImg txt;
-  txt.read(in, tabWidth);
-
-  return txt;
+  return TextImage::read(wif, static_cast<uint>(tabWidth)); // FIXME: uint when reading already
 }
 
 
 
-#include "main.h"
-#include "shapes.h"
-#include <fstream>
 
 int main(int argc, char* argv[])
 try
@@ -290,25 +280,17 @@ try
   app.setApplicationName("drawscii");
   app.setApplicationVersion(VERSION);
 
-  auto mode  = (QFileInfo{argv[0]}.fileName() == "ditaa" ? Mode::Ditaa : Mode::Drawscii);
-  auto args  = processCmdLine(app, mode);
-  auto txt   = readTextImg(args.inputFile, args.codec, args.tabWidth);
-  auto graph = Graph::from(txt);
-  auto hints = Hints::from(txt, graph);
+  auto mode   = (QFileInfo{argv[0]}.fileName() == "ditaa" ? Mode::Ditaa : Mode::Drawscii);
+  auto args   = processCmdLine(app, mode);
+  auto txt    = readTextImage(args.inputFile, args.codec, args.tabWidth);
+  auto graph  = constructGraph(txt);
+  auto shapes = findShapes(graph);
+//auto hints = Hints::from(txt, graph); // FIXME: Hints
 
-  //-----------------------------------------------
-  std::wifstream wif{args.inputFile.toStdString()};
-  if (!wif.is_open()) throw std::system_error{errno, std::system_category(), "failed to open input file"};
-  auto t2 = TextImage::read(wif, args.tabWidth);
-  auto g2 = constructGraph(t2);
-  g2.dump("test-graph.png");
-  auto s2 = findShapes(g2);
-  s2.dump("test-shapes.png");
-  return 0;
-  //-----------------------------------------------
-
-  Render render{graph, txt, args.font, args.lineWd};
-  render.apply(hints);
+  Render render{txt, graph, shapes};
+  render.setFont(args.font);
+  render.setLineWidth(args.lineWd);
+//render.apply(hints);
 
   QFileInfo outputInfo{args.outputFile};
   if (!args.overwrite && outputInfo.exists())

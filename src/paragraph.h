@@ -16,7 +16,6 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "textpos.h"
 #include <QColor>
 #include <QRect>
 #include <QString>

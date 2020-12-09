@@ -24,4 +24,4 @@
 /// Analyzes the \a text image and returns the Graph constructed from the
 /// drawings. All characters in \a text consumed for drawing are marked as
 /// being non-text, too.
-GRaph constructGraph(TextImage& text);
+Graph constructGraph(TextImage& text);

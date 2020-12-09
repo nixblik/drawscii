@@ -19,7 +19,7 @@ Angle Angle::relativeTo(Angle other) const noexcept
 
 
 
-constexpr NOde::NOde() noexcept
+constexpr Node::Node() noexcept
   : mEdges{},
     mX{0},
     mY{0},
@@ -30,7 +30,7 @@ constexpr NOde::NOde() noexcept
 
 
 
-inline NOde::NOde(int x, int y)
+inline Node::Node(int x, int y)
   : mEdges{},
     mX{static_cast<int16_t>(x)},
     mY{static_cast<int16_t>(y)},
@@ -44,7 +44,7 @@ inline NOde::NOde(int x, int y)
 
 
 
-Point NOde::ConstEdgeRef::target() const noexcept
+Point Node::ConstEdgeRef::target() const noexcept
 {
   auto p = mNode->point();
   return Point{p.x + dx(), p.y + dy()};
@@ -52,7 +52,7 @@ Point NOde::ConstEdgeRef::target() const noexcept
 
 
 
-int NOde::ConstEdgeRef::dx() const noexcept
+int Node::ConstEdgeRef::dx() const noexcept
 {
   assert(mIndex >= 0 && mIndex < 8);
 
@@ -62,7 +62,7 @@ int NOde::ConstEdgeRef::dx() const noexcept
 
 
 
-int NOde::ConstEdgeRef::dy() const noexcept
+int Node::ConstEdgeRef::dy() const noexcept
 {
   assert(mIndex >= 0 && mIndex < 8);
 
@@ -91,12 +91,12 @@ inline int reverseEdgeIndex(int idx)
 }
 
 
-static NOde noEdgesNode{};
+static Node noEdgesNode{};
 } // namespace
 
 
 
-auto NOde::nextRightwardTodoEdge(Angle prevAngle) noexcept -> EdgeRef
+auto Node::nextRightwardTodoEdge(Angle prevAngle) noexcept -> EdgeRef
 {
   assert(prevAngle.degrees() >= 0 && prevAngle.degrees() < 360);
 
@@ -113,7 +113,41 @@ auto NOde::nextRightwardTodoEdge(Angle prevAngle) noexcept -> EdgeRef
 
 
 
-NOde& GRaph::operator[](Point p)
+auto Node::reverseEdge(const ConstEdgeRef& edge) noexcept -> EdgeRef
+{ return EdgeRef{this, reverseEdgeIndex(edge.index())}; }
+
+
+
+auto Node::continueLine(const ConstEdgeRef& edge) noexcept -> EdgeRef
+{
+  switch (mForm)
+  {
+    case Straight: return EdgeRef{this, edge.index()};
+
+    case Bezier: {
+      for (int idx = 0; idx < 8; ++idx)
+        if (idx != edge.index() && mEdges[idx])
+          return EdgeRef{this, idx};
+      break;
+    }
+  }
+
+  assert(false);
+}
+
+
+
+Graph::Graph() noexcept
+  : mCurNode{nullptr},
+    mLeft{0},
+    mRight{0},
+    mTop{0},
+    mBottom{0}
+{}
+
+
+
+Node& Graph::operator[](Point p)
 {
   for (auto i = mNodes.begin(); i != mNodes.end(); ++i)
     if (i->point() == p)
@@ -124,7 +158,7 @@ NOde& GRaph::operator[](Point p)
 
 
 
-NOde& GRaph::moveTo(int x, int y)
+Node& Graph::moveTo(int x, int y)
 {
   for (auto i = mNodes.begin(); i != mNodes.end(); ++i)
     if (i->x() == x && i->y() == y)
@@ -132,6 +166,10 @@ NOde& GRaph::moveTo(int x, int y)
 
   mNodes.emplace_back(x, y);
   mCurNode = &mNodes.back();
+  mLeft    = std::min(mLeft, x);
+  mRight   = std::max(mRight, x);
+  mTop     = std::min(mTop, y);
+  mBottom  = std::max(mBottom, y);
 
   return *mCurNode;
 }
@@ -147,7 +185,7 @@ int signum(int x) noexcept
 
 
 
-NOde& GRaph::lineTo(int dx, int dy, Edge::Style style)
+Node& Graph::lineTo(int dx, int dy, Edge::Style style)
 {
   assert(dx == 0 || dy == 0 || abs(dx) == abs(dy));
   assert(mCurNode);
@@ -177,7 +215,7 @@ NOde& GRaph::lineTo(int dx, int dy, Edge::Style style)
 
 
 
-void GRaph::clearEdgesDone() noexcept
+void Graph::clearEdgesDone() noexcept
 {
   for (auto& node: mNodes)
     node.clearEdgesDone();
@@ -187,7 +225,7 @@ void GRaph::clearEdgesDone() noexcept
 
 #include <QImage>
 #include <QPainter>
-void GRaph::dump(const char* fname) const
+void Graph::dump(const char* fname) const
 {
   int xmax = 0;
   int ymax = 0;
