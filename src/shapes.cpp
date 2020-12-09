@@ -187,7 +187,7 @@ void ShapeFinder::addClosedShape(ShapePoints::const_iterator begin, ShapePoints:
     auto node = i->node;
     if (node->form() == Node::Bezier)
     {
-      assert(i + 1 != end);
+      assert(i + 1 != end); // FIXME: Debug failure here
       auto next = (++i)->node;
       shape.arcTo(next->point(), node->point());
     }
@@ -322,7 +322,7 @@ inline double length(const QPointF& p) noexcept
 
 
 
-QPainterPath Shape::path(int xScale, int yScale) const
+QPainterPath Shape::path(int xScale, int yScale, double radius) const
 {
   auto scaled = [=](Point p) -> QPointF
   { return QPointF(p.x * xScale, p.y * yScale); };
@@ -343,7 +343,7 @@ QPainterPath Shape::path(int xScale, int yScale) const
         auto r2 = p2 - pi;
         auto l1 = length(r1);
         auto l2 = length(r2);
-        auto r  = std::min(1.0, std::min(l1, l2));
+        auto r  = std::min(radius, std::min(l1, l2));
 
         assert(r > 0);
         r1 *= r/l1;

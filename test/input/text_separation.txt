@@ -1,12 +1,12 @@
               implant   +----------+
-              ideas  /->|  Unit A  +-------------------\
+              ideas  .->|  Unit A  +---------o---------.
 +--------------+     |  +----------+ present their     |
 | Manufacturer +-----+               credentials and   v
 +--------------+     |  +----------+ wait 10s  +----------------+
-                     \->|  Unit B  +---------->| Authentication |
+                     '->|  Unit B  +---------->| Authentication |
                         +----------+           |      Tool      |
                                                +----------------+
                                                        ^
                    +---------------+ cannot access     :
-                   | Other Units   +-=-=-=-=-=-=-=-=-=-/
+                   | Other Units   +-=-=-=-=-*-=-=-=-=-'
                    +---------------+

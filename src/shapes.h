@@ -35,7 +35,7 @@ class Shape
     void arcTo(Point p, Point ctrl);
     void done();
 
-    QPainterPath path(int xScale, int yScale) const;
+    QPainterPath path(int xScale, int yScale, double radius) const;
     QColor color;
     Edge::Style style;
 

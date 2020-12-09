@@ -257,7 +257,13 @@ class Graph
     Node* begin() noexcept
     { return &*mNodes.begin(); }
 
+    const Node* begin() const noexcept
+    { return &*mNodes.begin(); }
+
     Node* end() noexcept
+    { return &*mNodes.end(); }
+
+    const Node* end() const noexcept
     { return &*mNodes.end(); }
 
     int width() const noexcept

@@ -74,20 +74,27 @@ void Render::computeRenderParams()
   mScaleY = fm.height(); // TODO: Provide compression for x and y axis, but this depends on the font, so be careful
   mDeltaX = qRound(mScaleX * 0.5);
   mDeltaY = qRound(mScaleY * 0.5);
+  mRadius = (mScaleX + mScaleY) * 0.333333;
+  mCircle = qRound((mScaleX + mScaleY) * 0.2);
   mShadowDelta = 2;
 
-  auto& arrow = mArrows[0];
+  // Predraw the arrow marks
+  auto& arrow = mMarks[Node::RightArrow];
   arrow.clear();
-  arrow.append(QPoint{mDeltaX, 0});
-  arrow.append(QPoint{qRound(-0.5 * mDeltaX), qRound(-0.4 * mDeltaY)});
-  arrow.append(QPoint{qRound(-0.5 * mDeltaX), qRound( 0.4 * mDeltaY)});
+  arrow.append(QPoint{2 * mDeltaX, 0});
+  arrow.append(QPoint{-mDeltaX, qRound(-0.8 * mDeltaY)});
+  arrow.append(QPoint{-mDeltaX, qRound( 0.8 * mDeltaY)});
 
-  for (int i = 1; i < 4; ++i)
+  auto rotated = [](const QPolygonF& polygon, int angle)
   {
     QTransform t;
-    t.rotate(90*i);
-    mArrows[i] = t.map(arrow);
-  }
+    t.rotate(angle);
+    return t.map(polygon);
+  };
+
+  mMarks[Node::UpArrow]   = rotated(arrow, 270);
+  mMarks[Node::LeftArrow] = rotated(arrow, 180);
+  mMarks[Node::DownArrow] = rotated(arrow, 90);
 }
 
 
@@ -97,7 +104,7 @@ QSize Render::size() const noexcept
 
 
 inline QPoint Render::toImage(Point pos) const noexcept
-{ return QPoint{pos.x*mScaleX + mDeltaX, pos.y*mScaleY + mDeltaY}; }
+{ return QPoint{pos.x*mScaleX, pos.y*mScaleY}; }
 
 
 /*
@@ -210,6 +217,7 @@ void Render::paint(QPaintDevice* dev)
   mPainter.begin(dev);
   mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
   mPainter.setFont(mFont);
+  mPainter.translate(mDeltaX, mDeltaY);
 
   if (mAntialias)
   {
@@ -237,6 +245,7 @@ void Render::paint(QPaintDevice* dev)
 
   drawShapes(mShapes.inner, Qt::white, 0);
   drawLines();
+  drawMarks();
 //drawParagraphs();
 
   mPainter.end();
@@ -249,7 +258,7 @@ void Render::drawShapes(const Shapes::List& shapes, const QColor& defaultColor, 
   QPen pen{mSolidPen};
   for (auto& shape: shapes)
   {
-    auto path = shape.path(mScaleX, mScaleY);
+    auto path = shape.path(mScaleX, mScaleY, mRadius);
     if (delta)
       path.translate(delta, delta);
 
@@ -278,90 +287,46 @@ void Render::drawLines()
       case Edge::None:   assert(false);
     }
 
-    mPainter.drawPath(line.path(mScaleX, mScaleY));
+    mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
+  }
+}
+
+
+void Render::drawMarks()
+{
+  for (auto& node: mGraph)
+  {
+    switch (node.mark())
+    {
+      case Node::NoMark:
+        continue;
+
+      case Node::RightArrow:
+      case Node::UpArrow:
+      case Node::LeftArrow:
+      case Node::DownArrow:
+        mPainter.setPen(Qt::NoPen);
+        mPainter.setBrush(mBrush);
+        mPainter.drawPolygon(mMarks[node.mark()].translated(toImage(node.point())));
+        break;
+
+      case Node::EmptyCircle:
+        mPainter.setPen(mSolidPen);
+        mPainter.setBrush(Qt::white);
+        mPainter.drawEllipse(toImage(node.point()), mCircle, mCircle);
+        break;
+
+      case Node::FilledCircle:
+        mPainter.setPen(Qt::NoPen);
+        mPainter.setBrush(mBrush);
+        mPainter.drawEllipse(toImage(node.point()), mCircle, mCircle);
+        break;
+    }
   }
 }
 
 
 /*
-void Render::drawLineFrom(TextPos pos0, Direction dir)
-{
-  auto revDir = opposite(dir);
-  auto pos    = pos0;
-  bool dashed = true;
-  Node node   = mGraph[pos];
-
-  QPainterPath path;
-  if (node.kind() != Round)
-    path.moveTo(toImage(pos));
-  else if (dir == Right)
-    path.moveTo(toImage(pos) + QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius});
-  else
-  {
-    // This is a rounded corner like so:  /---    or like so:  /---
-    // And it is not a closed shape       |       (future)    /
-    QPoint pt  = toImage(pos);
-    QPoint r1  = QPoint{-mRadius, 0};
-    QPoint r2  = QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius};
-
-    path.moveTo(pt - r1);
-    path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
-  }
-
-  while (node.edges() & ~mDone[pos] & dir)
-  {
-    mDone[pos] |= dir;
-    pos        += dir;
-
-    mDone[pos] |= revDir;
-    node        = mGraph[pos];
-    dashed     &= node.isDashed();
-
-    if (node.kind() == Round)
-    {
-      // Rounded corner is drawn with a Bézier curve
-      QPoint pt = toImage(pos);
-      QPoint r1 = QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius};
-
-      dir    = mGraph.walkCorner(dir, pos, mTxt[pos]);
-      revDir = opposite(dir);
-
-      QPoint r2 = QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius};
-      path.lineTo(pt - r1);
-      path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
-    }
-  }
-
-  if (node.kind() != Round) // would only happen for closed shape
-    path.lineTo(toImage(pos));
-
-  mPainter.setPen(dashed ? mDashedPen : mSolidPen);
-  mPainter.setBrush(Qt::NoBrush);
-  mPainter.drawPath(path);
-}
-
-
-
-void Render::drawArrow(TextPos pos)
-{
-  int arrowIdx;
-  switch (mTxt[pos].toLatin1())
-  {
-    case '>': arrowIdx = 0; break;
-    case 'v':
-    case 'V': arrowIdx = 1; break;
-    case '<': arrowIdx = 2; break;
-    case '^': arrowIdx = 3; break;
-    default:  Q_UNREACHABLE(); // GCOV_EXCL_LINE
-  }
-
-  mPainter.setPen(Qt::NoPen);
-  mPainter.setBrush(mBrush);
-  mPainter.drawPolygon(mArrows[arrowIdx].translated(toImage(pos)));
-}
-
-
-
 namespace {
 QRect alignedRect(Qt::Alignment alignment, int width, const QRect& rect)
 {

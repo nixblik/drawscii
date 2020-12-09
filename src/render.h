@@ -49,6 +49,7 @@ class Render
     QPoint toImage(Point pos) const noexcept;
     void drawShapes(const Shapes::List& shapes, const QColor& defaultColor, int delta);
     void drawLines();
+    void drawMarks();
     void drawRoundCorner(Node node, Point pos);
     void drawArrow(Point pos);
     void drawParagraphs();
@@ -61,7 +62,7 @@ class Render
     QPen mDashedPen;
     QBrush mBrush;
     QPainter mPainter;
-    QPolygonF mArrows[4];
+    QPolygonF mMarks[7];
 //    ParagraphList mParagraphs;
 //    ParagraphList mActives;
     Shadow mShadowMode;
@@ -72,4 +73,6 @@ class Render
     int mDeltaX;
     int mDeltaY;
     int mShadowDelta;
+    int mCircle;
+    double mRadius;
 };
