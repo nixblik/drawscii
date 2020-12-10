@@ -125,8 +125,9 @@ auto Node::continueLine(const ConstEdgeRef& edge) noexcept -> EdgeRef // FIXME: 
     case Straight: return EdgeRef{this, edge.index()};
 
     case Bezier: {
+      int rev = reverseEdgeIndex(edge.index());
       for (int idx = 0; idx < 8; ++idx)
-        if (idx != edge.index() && mEdges[idx])
+        if (idx != edge.index() && idx != rev && mEdges[idx])
           return EdgeRef{this, idx};
       break;
     }
@@ -178,9 +179,7 @@ Node& Graph::moveTo(int x, int y)
 
 namespace {
 int signum(int x) noexcept
-{
-  return x < 0 ? -1 : (x > 0);
-}
+{ return x < 0 ? -1 : (x > 0); }
 } // namespace
 
 
@@ -219,39 +218,4 @@ void Graph::clearEdgesDone() noexcept
 {
   for (auto& node: mNodes)
     node.clearEdgesDone();
-}
-
-
-
-#include <QImage>
-#include <QPainter>
-void Graph::dump(const char* fname) const
-{
-  int xmax = 0;
-  int ymax = 0;
-
-  for (auto& node: mNodes)
-  {
-    xmax = std::max(xmax, node.point().x + 1);
-    ymax = std::max(ymax, node.point().y + 1);
-  }
-
-  qDebug("%ix%i", xmax, ymax);
-
-  QImage img(QSize{xmax*5, ymax*5}, QImage::Format_RGB32);
-  img.fill(Qt::white);
-
-  QPainter pa;
-  pa.begin(&img);
-  pa.setPen(Qt::black);
-  for (auto& node: mNodes)
-  {
-    QPoint np{node.point().x*5, node.point().y*5};
-    for (int dir = 0; dir < node.numberOfEdges(); ++dir)
-      if (auto edge = node.edge(dir))
-        pa.drawLine(np, np + QPoint{edge.dx()*5, edge.dy()*5});
-  }
-
-  pa.end();
-  img.save(fname);
 }

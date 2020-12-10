@@ -280,7 +280,6 @@ class Graph
     Node& moveTo(int x, int y);
     Node& lineTo(int dx, int dy, Edge::Style style);
     void clearEdgesDone() noexcept;
-    void dump(const char* fname) const;
 
   private:
     using Nodes = std::vector<Node>; // FIXME: Not optimal at all, use hashmap; approximate size from number of chars in TextImage

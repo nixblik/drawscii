@@ -248,20 +248,41 @@ void GraphConstructor::createMoreEdges()
 
 void GraphConstructor::createHorzLine(int x, int y, Edge::Style style)
 {
-  auto& drawing = mText.drawing(x, y);
+  auto& drawing   = mText.drawing(x, y);
+  int   length    = 2;
+  bool  checkDash = false;
 
   auto ch = mText(x+1, y);
-  if (ch == OneOf{L"-=+*<>"} || (ch == 'o' && !mText.isPartOfWord(x+1, y)))
+  if (ch == OneOf{L"-="})
   {
     drawing = true;
     mText.drawing(x+1, y) = true;
   }
-
-  if (drawing)
+  else if (ch == OneOf{L"+*<>"} || (ch == 'o' && !mText.isPartOfWord(x+1, y)))
   {
-    mGraph.moveTo(2*x-1, 2*y);
-    mGraph.lineTo(+2, +0, style);
+    checkDash = true;
+    drawing   = true;
+    mText.drawing(x+1, y) = true;
   }
+  else if (style == Edge::Solid && iswspace(ch) && mText(x+2, y) == '-')
+  {
+    style   = Edge::Dashed;
+    length  = 4;
+    drawing = true;
+    mText.drawing(x+1, y) = true;
+    mText.drawing(x+2, y) = true;
+  }
+  else
+    checkDash = true;
+
+  if (!drawing)
+    return;
+
+  if (checkDash && style == Edge::Solid && mText(x-2, y) == '-' && iswspace(mText(x-1, y)))
+    style = Edge::Dashed;
+
+  mGraph.moveTo(2*x-1, 2*y);
+  mGraph.lineTo(+length, +0, style);
 }
 
 

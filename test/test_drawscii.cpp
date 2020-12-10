@@ -45,6 +45,7 @@ void TestDrawscii::verifyImageOutput_data()
   QTest::newRow("corner.png")          << "corner"          << "png" << "";
   QTest::newRow("cornered_line.png")   << "cornered_line"   << "png" << "";
   QTest::newRow("cross.png")           << "cross"           << "png" << "--line-width 5";
+  QTest::newRow("dashed_lines.svg")    << "dashed_lines"    << "svg" << "";
   QTest::newRow("diag_tree.bmp")       << "diag_tree"       << "bmp" << "";
   QTest::newRow("hell.png")            << "hell"            << "png" << "--font-size 20";
   QTest::newRow("hell.svg")            << "hell"            << "svg" << "--font-size 20";

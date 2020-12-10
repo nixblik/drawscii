@@ -44,6 +44,7 @@ QtApplication {
           "input/corner.txt",
           "input/cornered_line.txt",
           "input/cross.txt",
+          "input/dashed_lines.txt",
           "input/diag_tree.txt",
           "input/hell.txt",
           "input/intertwined.txt",
