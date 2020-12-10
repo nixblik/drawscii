@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFile>
@@ -33,6 +34,7 @@
 #include <QPdfWriter>
 #include <QSvgGenerator>
 #include <QTextCodec>
+#include <QTextStream>
 
 
 
@@ -48,17 +50,35 @@ struct CmdLineArgs
   QColor bg{Qt::white};
   float lineWd{1};
   int shadows{0};
-  int tabWidth{8};
+  uint tabWidth{8};
   bool antialias{true};
   bool overwrite{true};
 };
 
 
 
-int parseIntArg(const QString& value, const char* error)
+int parseIntArg(const QString& value, int minimum, int maximum, const char* error)
 try
 {
-  return std::stoi(value.toUtf8().toStdString());
+  auto res = std::stoi(value.toUtf8().toStdString());
+  if (res < minimum || res > maximum)
+    throw std::out_of_range{"out of range"};
+
+  return res;
+}
+catch (const std::exception&)
+{ throw std::runtime_error{error}; }
+
+
+
+uint parseUintArg(const QString& value, uint minimum, uint maximum, const char* error)
+try
+{
+  auto res = std::stoul(value.toUtf8().toStdString());
+  if (res < minimum || res > maximum)
+    throw std::out_of_range{"out of range"};
+
+  return static_cast<uint>(res);
 }
 catch (const std::exception&)
 { throw std::runtime_error{error}; }
@@ -195,7 +215,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
         result.font.setFamily(parser.value(fontOpt));
 
       if (parser.isSet(fontSizeOpt))
-        result.font.setPixelSize(parseIntArg(parser.value(fontSizeOpt), "Invalid font size"));
+        result.font.setPixelSize(parseIntArg(parser.value(fontSizeOpt), 3, 128, "Invalid font size"));
 
       if (parser.isSet(lineWdOpt))
         result.lineWd = parseFloatArg(parser.value(lineWdOpt), "Invalid line width");
@@ -249,7 +269,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
       throw std::runtime_error{"Unknown encoding"};
 
   if (parser.isSet(tabsOpt))
-    result.tabWidth = parseIntArg(parser.value(tabsOpt), "Invalid tab width");
+    result.tabWidth = parseUintArg(parser.value(tabsOpt), 1, 16, "Invalid tab width");
 
   if (result.outputFile.isEmpty())
     throw std::runtime_error{"Missing output file"};
@@ -259,15 +279,29 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
 
 
 
-TextImage readTextImage(std::string fname, QTextCodec*, int tabWidth) // FIXME: Codec
+TextImage readTextImage(QString fname, QTextCodec* codec, uint tabWidth)
 {
-  std::wifstream wif{fname};
-  if (!wif.is_open())
-    throw std::system_error{errno, std::system_category(), fname + ": failed to open input file"};
+  if (codec)
+  {
+    QFile fd{fname};
+    if (!fd.open(QFile::ReadOnly))
+      throw RuntimeError{fname + ": " + fd.errorString()};
 
-  return TextImage::read(wif, static_cast<uint>(tabWidth)); // FIXME: uint when reading already
+    QTextStream is{&fd};
+    is.setCodec(codec);
+
+    std::wistringstream wis{is.readAll().toStdWString()};
+    return TextImage::read(wis, tabWidth);
+  }
+  else
+  {
+    std::wifstream wif{fname.toStdString()};
+    if (!wif.is_open())
+      throw std::system_error{errno, std::system_category(), fname.toStdString()};
+
+    return TextImage::read(wif, tabWidth);
+  }
 }
-
 
 
 
@@ -282,7 +316,7 @@ try
 
   auto mode   = (QFileInfo{argv[0]}.fileName() == "ditaa" ? Mode::Ditaa : Mode::Drawscii);
   auto args   = processCmdLine(app, mode);
-  auto txt    = readTextImage(args.inputFile.toStdString(), args.codec, args.tabWidth);
+  auto txt    = readTextImage(args.inputFile, args.codec, args.tabWidth);
   auto graph  = constructGraph(txt);
   auto shapes = findShapes(graph);
 //auto hints = Hints::from(txt, graph); // FIXME: Hints
