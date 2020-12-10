@@ -16,10 +16,10 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
+#include "color.h"
 #include "graph.h"
 #include <forward_list>
 #include <vector>
-#include <QColor>
 class QPainterPath;
 
 
@@ -35,7 +35,7 @@ class Shape
     void arcTo(Point p, Point ctrl);
 
     QPainterPath path(double xScale, double yScale, double radius) const;
-    QColor color;
+    Color color;
     Edge::Style style;
 
   private:

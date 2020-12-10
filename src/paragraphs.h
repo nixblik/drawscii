@@ -16,11 +16,10 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "common.h"
+#include "color.h"
 #include <list>
 #include <string>
 #include <vector>
-#include <QColor>
 class TextImage;
 
 
@@ -63,7 +62,7 @@ class Paragraph
     bool addRow(std::wstring&& row, int x, int y);
     Qt::Alignment alignment() const noexcept;
 
-    QColor color; // FIXME: Make this a typedef in some global header
+    Color color;
 
   private:
     struct Row {

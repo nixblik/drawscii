@@ -278,7 +278,7 @@ void Render::drawMarks()
 
 inline QRect Render::imageRect(const Paragraph& p) const noexcept
 { return QRect{p.left()*mScaleX-mDeltaX, p.top()*mScaleY-mDeltaY, p.width()*mScaleX, p.height()*mScaleY}; }
-// FIXME: Eigentlich mScaleX/2
+
 
 
 void Render::drawParagraphs()

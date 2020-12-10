@@ -21,6 +21,7 @@ QtApplication {
   files: [
         "blur.cpp",
         "blur.h",
+        "color.h",
         "common.h",
         "graph.cpp",
         "graph.h",
@@ -46,9 +47,8 @@ QtApplication {
     fileTags: []
     overrideTags: true
     files: [
-      "graph2.cpp",
-      "hints.cpp",
-    ]
+          "hints.cpp",
+      ]
   }
 
   Depends { name:"Qt"; submodules:["core","gui","svg"] }
