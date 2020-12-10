@@ -33,7 +33,6 @@ class Shape
     void moveTo(Point p);
     void lineTo(Point p);
     void arcTo(Point p, Point ctrl);
-    void done();
 
     QPainterPath path(int xScale, int yScale, double radius) const;
     QColor color;

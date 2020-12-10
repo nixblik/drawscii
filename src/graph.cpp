@@ -118,7 +118,7 @@ auto Node::reverseEdge(const ConstEdgeRef& edge) noexcept -> EdgeRef
 
 
 
-auto Node::continueLine(const ConstEdgeRef& edge) noexcept -> EdgeRef
+auto Node::continueLine(const ConstEdgeRef& edge) noexcept -> EdgeRef // FIXME: Consider continuing the line also if it's not straight!
 {
   switch (mForm)
   {
