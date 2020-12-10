@@ -23,10 +23,11 @@
 
 
 
-Render::Render(const TextImage& txt, const Graph& graph, const Shapes& shapes)
+Render::Render(const TextImage& txt, const Graph& graph, const Shapes& shapes, const ParagraphList& paragraphs)
   : mTxt{txt},
     mGraph{graph},
     mShapes{shapes},
+    mParagraphs{paragraphs},
     mBrush{Qt::black},
     mShadowMode{Shadow::None},
     mAntialias{true}
@@ -105,79 +106,7 @@ QSize Render::size() const noexcept
 { return QSize{mGraph.width() * mScaleX + mShadowDelta, mGraph.height() * mScaleY + mShadowDelta}; }
 
 
-inline QPoint Render::toImage(Point pos) const noexcept
-{ return QPoint{pos.x*mScaleX, pos.y*mScaleY}; }
-
-
 /*
-inline QRect Render::imageRect(const Paragraph& p) const noexcept
-{
-  auto pt = p.topLeft();
-  return QRect{pt.x*mScaleX, pt.y*mScaleY, p.width()*mScaleX, p.height()*mScaleY};
-}
-
-
-
-void Render::findParagraphs()
-{
-  QList<Paragraph> active;
-  QString line;
-  int spaces = 0;
-  int lineX  = 0;
-
-  for (int y = 0; y < mGraph.height(); ++y)
-  {
-    for (int x = 0; x < mGraph.width(); ++x)
-    {
-      if (mGraph(x,y).kind() == Text)
-      {
-        auto ch  = mTxt(x,y);
-        bool spc = ch.isSpace();
-        spaces   = spc ? spaces + 1 : 0;
-
-        if (line.isEmpty())
-          lineX = x;
-
-        if (!spc || !line.isEmpty())
-          line.append(ch);
-
-        if (spaces <= 1 && x + 1 < mTxt.width())
-          continue;
-      }
-
-      if (line.isEmpty())
-        continue;
-
-      line.truncate(line.size() - spaces);
-      addLineToParagraphs(std::move(line), TextPos{lineX, y});
-    }
-  }
-
-  mParagraphs.splice(mParagraphs.end(), mActives);
-}
-
-
-
-void Render::addLineToParagraphs(QString&& line, TextPos pos)
-{
-  for (auto para = mActives.begin(); para != mActives.end(); )
-  {
-    if (pos.y > para->bottom() + 1)
-    {
-      auto old = para++;
-      mParagraphs.splice(mParagraphs.end(), mActives, old);
-    }
-    else if (para->addLine(std::move(line), pos))
-      return;
-    else
-      ++para;
-  }
-
-  mActives.emplace_back(std::move(line), pos);
-}
-
-
-
 void Render::apply(const Hints& hints)
 {
   for (auto& hint: hints)
@@ -248,7 +177,7 @@ void Render::paint(QPaintDevice* dev)
   drawShapes(mShapes.inner, Qt::white, 0);
   drawLines();
   drawMarks();
-//drawParagraphs();
+  drawParagraphs();
 
   mPainter.end();
 }
@@ -258,9 +187,13 @@ void Render::paint(QPaintDevice* dev)
 void Render::drawShapes(const Shapes::List& shapes, const QColor& defaultColor, int delta)
 {
   QPen pen{mSolidPen};
+  auto scaleX = mScaleX * 0.5;
+  auto scaleY = mScaleY * 0.5;
+  auto radius = mRadius * 0.5;
+
   for (auto& shape: shapes)
   {
-    auto path = shape.path(mScaleX, mScaleY, mRadius);
+    auto path = shape.path(scaleX, scaleY, radius);
     if (delta)
       path.translate(delta, delta);
 
@@ -276,8 +209,11 @@ void Render::drawShapes(const Shapes::List& shapes, const QColor& defaultColor, 
 
 void Render::drawLines()
 {
-  mPainter.setBrush(Qt::NoBrush);
+  auto scaleX = mScaleX * 0.5;
+  auto scaleY = mScaleY * 0.5;
+  auto radius = mRadius * 0.5;
 
+  mPainter.setBrush(Qt::NoBrush);
   for (auto& line: mShapes.lines)
   {
     switch (line.style)
@@ -289,14 +225,20 @@ void Render::drawLines()
 
       case Edge::Double:
         mPainter.setPen(mDoubleOuterPen);
-        mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
+        mPainter.drawPath(line.path(scaleX, scaleY, radius));
         mPainter.setPen(mDoubleInnerPen);
         break;
     }
 
-    mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
+    mPainter.drawPath(line.path(scaleX, scaleY, radius));
   }
 }
+
+
+
+inline QPoint Render::toImage(Point pos) const noexcept
+{ return QPoint{pos.x*mScaleX, pos.y*mScaleY}; }
+
 
 
 void Render::drawMarks()
@@ -333,36 +275,10 @@ void Render::drawMarks()
 }
 
 
-/*
-namespace {
-QRect alignedRect(Qt::Alignment alignment, int width, const QRect& rect)
-{
-  int newX;
-  switch (alignment)
-  {
-    case Qt::AlignLeft:    newX = rect.x(); break;
-    case Qt::AlignHCenter: newX = rect.x() + (rect.width() - width) / 2; break;
-    case Qt::AlignRight:   newX = rect.x() + rect.width() - width; break;
-    default:               return rect;
-  }
 
-  return QRect{newX, rect.y(), width, rect.height()};
-}
-} // namespace
-
-
-
-namespace {
-inline int leadingSpaces(const QString& s)
-{
-  for (int i = 0; i < s.size(); ++i)
-    if (!s[i].isSpace())
-      return i;
-
-  Q_UNREACHABLE(); // GCOV_EXCL_LINE
-}                  // GCOV_EXCL_LINE
-} // namespace
-
+inline QRect Render::imageRect(const Paragraph& p) const noexcept
+{ return QRect{p.left()*mScaleX-mDeltaX, p.top()*mScaleY-mDeltaY, p.width()*mScaleX, p.height()*mScaleY}; }
+// FIXME: Eigentlich mScaleX/2
 
 
 void Render::drawParagraphs()
@@ -370,26 +286,23 @@ void Render::drawParagraphs()
   QFontMetrics fm{mFont};
   mPainter.setPen(mSolidPen);
 
-  for (const auto& para: mParagraphs)
+  for (auto& para: mParagraphs)
   {
     auto align = para.alignment();
-    auto pixwd = para.pixelWidth(fm);
-    auto orect = imageRect(para);
-    auto rect  = alignedRect(align, pixwd, orect);
+    auto rect  = imageRect(para);
 
     if (para.color.isValid())
       mPainter.setPen(para.color);
 
-    for (int i = 0; i < para.numberOfLines(); ++i)
+    for (int rowIdx = 0; rowIdx < para.height(); ++rowIdx)
     {
-      auto& line = para[i];
-      QRect lrect{rect.x(), rect.y() + i*mScaleY, rect.width(), mScaleY};
+      auto& rowTxt = para[rowIdx];
+      QRect lrect{rect.x(), rect.y() + rowIdx*mScaleY, rect.width(), mScaleY};
 
       if (align == Qt::Alignment{})
-        lrect.adjust(leadingSpaces(line)*mScaleX, 0, 0, 0);
+        lrect.adjust(para.indent(rowIdx) * mScaleX, 0, 0, 0);
 
-      mPainter.drawText(lrect, static_cast<int>(align), line.trimmed());
+      mPainter.drawText(lrect, static_cast<int>(align), QString::fromStdWString(rowTxt)); // FIXME: QString conversion is expensive
     }
   }
 }
-*/

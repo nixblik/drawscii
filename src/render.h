@@ -18,6 +18,7 @@
 #pragma once
 #include "graph.h"
 #include "shapes.h"
+#include "paragraphs.h"
 #include <list>
 #include <QPainter>
 class Hints;
@@ -33,7 +34,7 @@ enum class Shadow
 class Render
 {
   public:
-    Render(const TextImage& txt, const Graph& graph, const Shapes& shapes);
+    Render(const TextImage& txt, const Graph& graph, const Shapes& shapes, const ParagraphList& paragraphs);
     ~Render();
 
     QSize size() const noexcept;
@@ -47,6 +48,7 @@ class Render
   private:
     void computeRenderParams();
     QPoint toImage(Point pos) const noexcept;
+    QRect imageRect(const Paragraph& p) const noexcept;
     void drawShapes(const Shapes::List& shapes, const QColor& defaultColor, int delta);
     void drawLines();
     void drawMarks();
@@ -57,6 +59,7 @@ class Render
     const TextImage& mTxt;
     const Graph& mGraph;
     const Shapes& mShapes;
+    const ParagraphList& mParagraphs;
     QFont mFont;
     QPen mSolidPen;
     QPen mDoubleOuterPen;
@@ -65,8 +68,6 @@ class Render
     QBrush mBrush;
     QPainter mPainter;
     QPolygonF mMarks[7];
-//    ParagraphList mParagraphs;
-//    ParagraphList mActives;
     Shadow mShadowMode;
     bool mAntialias;
 

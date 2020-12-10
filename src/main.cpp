@@ -316,12 +316,13 @@ try
 
   auto mode   = (QFileInfo{argv[0]}.fileName() == "ditaa" ? Mode::Ditaa : Mode::Drawscii);
   auto args   = processCmdLine(app, mode);
-  auto txt    = readTextImage(args.inputFile, args.codec, args.tabWidth);
-  auto graph  = constructGraph(txt);
+  auto text   = readTextImage(args.inputFile, args.codec, args.tabWidth);
+  auto graph  = constructGraph(text);
   auto shapes = findShapes(graph);
+  auto paras  = findParagraphs(text);
 //auto hints = Hints::from(txt, graph); // FIXME: Hints
 
-  Render render{txt, graph, shapes};
+  Render render{text, graph, shapes, paras};
   render.setFont(args.font);
   render.setLineWidth(args.lineWd);
 //render.apply(hints);

@@ -29,6 +29,8 @@ QtApplication {
         "main.h",
         "outputfile.cpp",
         "outputfile.h",
+        "paragraphs.cpp",
+        "paragraphs.h",
         "render.cpp",
         "render.h",
         "runtimeerror.cpp",
@@ -46,8 +48,6 @@ QtApplication {
     files: [
       "graph2.cpp",
       "hints.cpp",
-      "paragraph.cpp",
-      "paragraph.h",
     ]
   }
 

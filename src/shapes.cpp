@@ -313,10 +313,10 @@ inline double length(const QPointF& p) noexcept
 
 
 
-QPainterPath Shape::path(int xScale, int yScale, double radius) const
+QPainterPath Shape::path(double xScale, double yScale, double radius) const
 {
   auto scaled = [=](Point p) -> QPointF
-  { return QPointF(p.x * xScale, p.y * yScale); };
+  { return QPointF(round(p.x * xScale), round(p.y * yScale)); };
 
   QPainterPath result;
   for (auto i = mPath.begin(); i != mPath.end(); ++i)

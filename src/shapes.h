@@ -34,7 +34,7 @@ class Shape
     void lineTo(Point p);
     void arcTo(Point p, Point ctrl);
 
-    QPainterPath path(int xScale, int yScale, double radius) const;
+    QPainterPath path(double xScale, double yScale, double radius) const;
     QColor color;
     Edge::Style style;
 
@@ -54,8 +54,6 @@ struct Shapes
   List outer;
   List inner;
   List lines;
-
-  void dump(const char* fname) const;
 };
 
 
