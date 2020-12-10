@@ -48,7 +48,7 @@ TextImage TextImage::read(std::wistream& in, uint tabWidth)
   while (std::getline(in, line))
   {
     replace_all(line, '\t', spaces);
-    if (line.size() > std::numeric_limits<int>::max() - 2)
+    if (line.size() > size_t{std::numeric_limits<int>::max() - 2})
       throw std::runtime_error{"line too long"};
 
     txt.mLines.emplace_back(std::move(line));

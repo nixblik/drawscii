@@ -259,11 +259,11 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
 
 
 
-TextImage readTextImage(QString fname, QTextCodec*, int tabWidth) // FIXME: Codec
+TextImage readTextImage(std::string fname, QTextCodec*, int tabWidth) // FIXME: Codec
 {
-  std::wifstream wif{fname.toStdString()};
+  std::wifstream wif{fname};
   if (!wif.is_open())
-    throw std::system_error{errno, std::system_category(), "failed to open input file"};
+    throw std::system_error{errno, std::system_category(), fname + ": failed to open input file"};
 
   return TextImage::read(wif, static_cast<uint>(tabWidth)); // FIXME: uint when reading already
 }
@@ -282,7 +282,7 @@ try
 
   auto mode   = (QFileInfo{argv[0]}.fileName() == "ditaa" ? Mode::Ditaa : Mode::Drawscii);
   auto args   = processCmdLine(app, mode);
-  auto txt    = readTextImage(args.inputFile, args.codec, args.tabWidth);
+  auto txt    = readTextImage(args.inputFile.toStdString(), args.codec, args.tabWidth);
   auto graph  = constructGraph(txt);
   auto shapes = findShapes(graph);
 //auto hints = Hints::from(txt, graph); // FIXME: Hints

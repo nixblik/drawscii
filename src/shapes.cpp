@@ -155,20 +155,18 @@ void ShapeFinder::findClosedShapeAt(Node::EdgeRef edge0)
     if (nextNode->mark() >= Node::RightArrow) // FIXME: Reconsider arrow handling, and improve this conditional
       continue;
 
+    mShapePts.emplace_back(nextNode, nextAngle, cur.angleSum + nextAngle.relativeTo(cur.angle));
+
     // Check whether new point closes the shape
     for (auto i = mShapePts.begin(); i != mShapePts.end(); ++i)
     {
       if (i->node == nextNode)
       {
-        addClosedShape(i, mShapePts.end(), cur.angleSum - i->angleSum);
+        addClosedShape(i, mShapePts.end(), mShapePts.back().angleSum - i->angleSum);
         mShapePts.erase(i + 1, mShapePts.end());
-        goto ContinueOuterLoop;
+        break;
       }
     }
-
-    // Continue shape-finding at new point
-    mShapePts.emplace_back(nextNode, nextAngle, cur.angleSum + nextAngle.relativeTo(cur.angle));
-  ContinueOuterLoop:;
   }
 }
 
@@ -187,7 +185,7 @@ void ShapeFinder::addClosedShape(ShapePoints::const_iterator begin, ShapePoints:
     auto node = i->node;
     if (node->form() == Node::Bezier)
     {
-      assert(i + 1 != end); // FIXME: Debug failure here
+      assert(i + 1 != end);
       auto next = (++i)->node;
       shape.arcTo(next->point(), node->point());
     }
