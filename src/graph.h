@@ -114,8 +114,8 @@ class Node
     enum Form { Straight, Bezier };
     enum Mark {
       NoMark = 0,
-      RightArrow, UpArrow, LeftArrow, DownArrow,
       EmptyCircle, FilledCircle,
+      RightArrow, UpArrow, LeftArrow, DownArrow, // Order matters for isClosedMark()
     };
 
     /// \internal
@@ -144,6 +144,9 @@ class Node
 
     Mark mark() const noexcept
     { return static_cast<Mark>(mMark); }
+
+    bool isClosedMark() const noexcept
+    { return mMark < RightArrow; }
 
     Form form() const noexcept
     { return static_cast<Form>(mForm); }

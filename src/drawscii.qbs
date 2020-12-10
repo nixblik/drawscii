@@ -22,7 +22,6 @@ QtApplication {
         "blur.cpp",
         "blur.h",
         "common.h",
-        "flags.h",
         "graph.cpp",
         "graph.h",
         "graph_construction.cpp",

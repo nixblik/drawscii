@@ -128,8 +128,7 @@ void ShapeFinder::findClosedShapeAt(Node::EdgeRef edge0)
 {
   edge0.setDone();
   auto node1 = &mGraph[edge0.target()];
-
-  if (node1->mark() >= Node::RightArrow) // FIXME: Reconsider arrow handling, and improve this conditional
+  if (!node1->isClosedMark())
     return;
 
   mShapePts.clear();
@@ -149,10 +148,9 @@ void ShapeFinder::findClosedShapeAt(Node::EdgeRef edge0)
 
     // Check that new point is ok for shape
     edge.setDone();
-    auto nextNode  = &mGraph[edge.target()];
     auto nextAngle = edge.angle();
-
-    if (nextNode->mark() >= Node::RightArrow) // FIXME: Reconsider arrow handling, and improve this conditional
+    auto nextNode  = &mGraph[edge.target()];
+    if (!nextNode->isClosedMark())
       continue;
 
     mShapePts.emplace_back(nextNode, nextAngle, cur.angleSum + nextAngle.relativeTo(cur.angle));

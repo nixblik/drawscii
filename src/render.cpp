@@ -51,8 +51,10 @@ void Render::setFont(const QFont& font)
 
 void Render::setLineWidth(float lineWd)
 {
-  mSolidPen  = QPen{Qt::black, static_cast<qreal>(lineWd)};
-  mDashedPen = QPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine};
+  mSolidPen       = QPen{Qt::black, static_cast<qreal>(lineWd), Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin};
+  mDoubleOuterPen = QPen{Qt::black, static_cast<qreal>(lineWd * 3), Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin};
+  mDoubleInnerPen = QPen{Qt::white, static_cast<qreal>(lineWd), Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin};
+  mDashedPen      = QPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine, Qt::FlatCap, Qt::MiterJoin};
   mDashedPen.setDashPattern({5, 3});
 }
 
@@ -282,9 +284,14 @@ void Render::drawLines()
     {
       case Edge::Weak:
       case Edge::Solid:  mPainter.setPen(mSolidPen); break;
-      case Edge::Double: mPainter.setPen(mSolidPen); break; // FIXME: Double lines could be done by drawing a thick black line, then a thin white line
       case Edge::Dashed: mPainter.setPen(mDashedPen); break;
       case Edge::None:   assert(false);
+
+      case Edge::Double:
+        mPainter.setPen(mDoubleOuterPen);
+        mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
+        mPainter.setPen(mDoubleInnerPen);
+        break;
     }
 
     mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));

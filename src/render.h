@@ -59,6 +59,8 @@ class Render
     const Shapes& mShapes;
     QFont mFont;
     QPen mSolidPen;
+    QPen mDoubleOuterPen;
+    QPen mDoubleInnerPen;
     QPen mDashedPen;
     QBrush mBrush;
     QPainter mPainter;
