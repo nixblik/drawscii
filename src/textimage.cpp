@@ -70,7 +70,7 @@ inline TextImage::TextImage() noexcept
 inline TextImage::Line::Line(std::wstring s)
   : str{std::move(s)}
 {
-  drawing.resize(str.size(), false);
+  categories.resize(str.size(), Category::Text);
 }
 
 
@@ -91,11 +91,11 @@ wchar_t TextImage::operator()(int x, int y) const noexcept
 
 
 
-bool TextImage::isDrawing(int x, int y) const noexcept
+Category TextImage::category(int x, int y) const noexcept
 {
   assert(x >= 0 && y >= 0 && y < height());
 
-  auto& line = mLines[static_cast<size_t>(y)].drawing;
+  auto& line = mLines[static_cast<size_t>(y)].categories;
   auto  xu   = static_cast<size_t>(x);
 
   assert(xu < line.size());
@@ -104,11 +104,11 @@ bool TextImage::isDrawing(int x, int y) const noexcept
 
 
 
-uint8_t& TextImage::drawing(int x, int y) noexcept
+Category& TextImage::category(int x, int y) noexcept
 {
   assert(x >= 0 && y >= 0 && y < height());
 
-  auto& line = mLines[static_cast<size_t>(y)].drawing;
+  auto& line = mLines[static_cast<size_t>(y)].categories;
   auto  xu   = static_cast<size_t>(x);
 
   assert(xu < line.size());

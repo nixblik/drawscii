@@ -26,8 +26,10 @@ QtApplication {
         "graph.cpp",
         "graph.h",
         "graph_construction.cpp",
+        "graph_construction.h",
+        "hints.cpp",
+        "hints.h",
         "main.cpp",
-        "main.h",
         "outputfile.cpp",
         "outputfile.h",
         "paragraphs.cpp",
@@ -41,15 +43,6 @@ QtApplication {
         "textimage.cpp",
         "textimage.h",
     ]
-
-  Group {
-    name: "Old files"
-    fileTags: []
-    overrideTags: true
-    files: [
-          "hints.cpp",
-      ]
-  }
 
   Depends { name:"Qt"; submodules:["core","gui","svg"] }
   Depends { name:"coverage" }

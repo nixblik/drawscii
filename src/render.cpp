@@ -24,10 +24,27 @@
 
 
 
-Render::Render(const TextImage& txt, const Graph& graph, const Shapes& shapes, const ParagraphList& paragraphs)
+struct Render::ShapePath
+{
+  ShapePath(const QPainterPath& p) noexcept;
+
+  QPainterPath path;
+  QColor color;
+};
+
+
+
+Render::ShapePath::ShapePath(const QPainterPath& p) noexcept
+  : path{p}
+{}
+
+
+
+Render::Render(const TextImage& txt, const Graph& graph, const Shapes& shapes, const Hints& hints, const ParagraphList& paragraphs)
   : mTxt{txt},
     mGraph{graph},
     mShapes{shapes},
+    mHints{hints},
     mParagraphs{paragraphs},
     mBrush{Qt::black},
     mShadowMode{Shadow::None},
@@ -83,7 +100,7 @@ void Render::computeRenderParams()
   // Determine size and position of the output
   mBoundingBox = QRect{graphToImage({mGraph.left(), mGraph.top()}), graphToImage({mGraph.right(), mGraph.bottom()})};
   for (auto& para: mParagraphs)
-    mBoundingBox = mBoundingBox.united(textRectToImage(para));
+    mBoundingBox = mBoundingBox.united(textToImage(para));
 
   int ltExtend = qRound((mScaleX + mScaleY) * 0.5);
   int rbExtend = ltExtend + (mShadowMode == Shadow::None ? 0 : mShadowDelta);
@@ -117,42 +134,20 @@ QSize Render::size() const noexcept
 }
 
 
-/*
-void Render::apply(const Hints& hints)
-{
-  for (auto& hint: hints)
-  {
-    auto hintPt = toImage(hint.pos);
-    if (hint.color.isValid())
-    {
-      for (auto i = mShapes.rbegin(); i != mShapes.rend(); ++i)
-        if (i->path.contains(hintPt))
-        { i->bg = hint.color; break; }
-    }
-  }
-
-  for (auto& para: mParagraphs)
-  {
-    auto paraPt = toImage(para.innerPoint());
-
-    for (auto& shape: mShapes)
-      if (shape.path.contains(paraPt))
-        para.color = shape.bg.isValid() && shape.bg.lightness() < 100 ? Qt::white : Qt::black;
-  }
-}
-*/
-
-
 
 void Render::paint(QPaintDevice* dev)
 {
+  mOuterShapes = shapePaths(mShapes.outer, mShadowDelta);
+  mInnerShapes = shapePaths(mShapes.inner, 0);
+  applyHints(Qt::white);
+
   QImage shadowImg;
   if (mShadowMode == Shadow::Blurred)
   {
     shadowImg = QImage{size(), QImage::Format_Alpha8};
     shadowImg.fill(Qt::transparent);
     mPainter.begin(&shadowImg);
-    drawShapes(mShapes.outer, Qt::black, mShadowDelta);
+    drawShapes(mOuterShapes, Qt::black);
     mPainter.end();
   }
 
@@ -176,7 +171,7 @@ void Render::paint(QPaintDevice* dev)
       break;
 
     case Shadow::Simple:
-      drawShapes(mShapes.outer, Qt::lightGray, mShadowDelta);
+      drawShapes(mOuterShapes, Qt::lightGray);
       break;
 
     case Shadow::Blurred:
@@ -185,7 +180,7 @@ void Render::paint(QPaintDevice* dev)
       break;
   }
 
-  drawShapes(mShapes.inner, Qt::white, 0);
+  drawShapes(mInnerShapes, Qt::white);
   drawLines();
   drawMarks();
   drawParagraphs();
@@ -195,9 +190,9 @@ void Render::paint(QPaintDevice* dev)
 
 
 
-void Render::drawShapes(const Shapes::List& shapes, const QColor& defaultColor, int delta)
+auto Render::shapePaths(const Shapes::List& shapes, int delta) const -> ShapePaths
 {
-  QPen pen{mSolidPen};
+  ShapePaths paths;
 
   for (auto& shape: shapes)
   {
@@ -205,11 +200,56 @@ void Render::drawShapes(const Shapes::List& shapes, const QColor& defaultColor, 
     if (delta)
       path.translate(delta, delta);
 
+    paths.emplace_front(path);
+  }
+
+  paths.reverse();
+  return paths;
+}
+
+
+
+void Render::applyHints(const QColor& defaultColor)
+{
+  mInnerShapes.reverse();
+
+  for (auto& hint: mHints)
+  {
+    if (!hint.color.isValid())
+      continue;
+
+    auto hintPt = textToImage(hint.x, hint.y);
+    for (auto& shape: mInnerShapes)
+      if (shape.path.contains(hintPt))
+      { shape.color = hint.color; break; }
+  }
+
+  mInnerShapes.reverse();
+
+  for (const auto& shape: mInnerShapes)
+  {
+    auto color     = shape.color.isValid() ? shape.color : defaultColor;
+    bool darkShape = color.lightness() < 100;
+
+    for (auto& para: mParagraphs)
+      if (shape.path.contains(textToImage(para.topInnerX(), para.top())))
+        para.color = darkShape ? Qt::white : Qt::black;
+  }
+}
+
+
+
+void Render::drawShapes(const ShapePaths& shapes, const QColor& defaultColor)
+{
+  QPen pen{mSolidPen};
+
+  for (auto& shape: shapes)
+  {
     auto color = shape.color.isValid() ? shape.color : defaultColor;
     pen.setColor(color);
     mPainter.setPen(pen);
     mPainter.setBrush(color);
-    mPainter.drawPath(path);
+    mPainter.drawPath(shape.path);
   }
 }
 
@@ -280,14 +320,22 @@ void Render::drawMarks()
 
 
 
-inline QRect Render::textRectToImage(const Paragraph& p) const noexcept
+inline QPoint Render::textToImage(int x, int y) const noexcept
 {
-  auto left = qRound(mScaleX * (p.left() * 2 - 1));
-  auto wd   = qRound(mScaleX * p.width() * 2);
-  auto top  = qRound(mScaleY * (p.top() * 2 - 1));
-  auto ht   = qRound(mScaleY * p.height() * 2);
+  auto ix = qRound(mScaleX * (x*2 - 1));
+  auto iy = qRound(mScaleY * (y*2 - 1));
 
-  return QRect{left, top, wd, ht};
+  return QPoint{ix, iy};
+}
+
+
+
+inline QRect Render::textToImage(const Paragraph& p) const noexcept
+{
+  auto wd = qRound(mScaleX * p.width() * 2);
+  auto ht = qRound(mScaleY * p.height() * 2);
+
+  return QRect{textToImage(p.left(), p.top()), QSize{wd, ht}};
 }
 
 
@@ -295,16 +343,12 @@ inline QRect Render::textRectToImage(const Paragraph& p) const noexcept
 void Render::drawParagraphs()
 {
   QFontMetrics fm{mFont};
-  mPainter.setPen(mSolidPen);
-
   for (auto& para: mParagraphs)
   {
     auto align = para.alignment();
-    auto rect  = textRectToImage(para);
+    auto rect  = textToImage(para);
 
-    if (para.color.isValid())
-      mPainter.setPen(para.color);
-
+    mPainter.setPen(para.color.isValid() ? para.color : Qt::black);
     for (int rowIdx = 0; rowIdx < para.height(); ++rowIdx)
     {
       auto& rowTxt = para[rowIdx];

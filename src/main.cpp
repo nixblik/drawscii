@@ -15,7 +15,8 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "main.h"
+#include "graph_construction.h"
+#include "hints.h"
 #include "outputfile.h"
 #include "render.h"
 #include "runtimeerror.h"
@@ -319,13 +320,12 @@ try
   auto text   = readTextImage(args.inputFile, args.codec, args.tabWidth);
   auto graph  = constructGraph(text);
   auto shapes = findShapes(graph);
+  auto hints  = findHints(text);
   auto paras  = findParagraphs(text);
-//auto hints = Hints::from(txt, graph); // FIXME: Hints
 
-  Render render{text, graph, shapes, paras};
+  Render render{text, graph, shapes, hints, paras};
   render.setFont(args.font);
   render.setLineWidth(args.lineWd);
-//render.apply(hints);
 
   QFileInfo outputInfo{args.outputFile};
   if (!args.overwrite && outputInfo.exists())
@@ -340,6 +340,7 @@ try
   auto suffix = outputInfo.suffix().toLatin1();
   if (suffix == "svg")
   {
+    // FIXME: Put these in extra functions
     OutputFile fd{args.outputFile};
     QSvgGenerator svg;
     svg.setOutputDevice(&fd);

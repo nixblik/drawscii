@@ -15,7 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "main.h"
+#include "graph_construction.h"
 
 
 
@@ -146,9 +146,9 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, Node::Form for
   {
     if (mText(x, y+dy) == OneOf{L"|!:+"})
     {
-      mText.drawing(x, y)    = true;
-      mText.drawing(x+dx, y) = true;
-      mText.drawing(x, y+dy) = true;
+      mText.category(x, y)    = Category::Drawing;
+      mText.category(x+dx, y) = Category::Drawing;
+      mText.category(x, y+dy) = Category::Drawing;
 
       mGraph.moveTo(2*x, 2*y+dy);
       if (form != Node::Straight)
@@ -162,9 +162,9 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, Node::Form for
 
     if (form == Node::Bezier && mText(x-dx,y+dy) == (dx*dy > 0 ? '/' : '\\'))
     {
-      mText.drawing(x, y)       = true;
-      mText.drawing(x+dx, y)    = true;
-      mText.drawing(x-dx, y+dy) = true;
+      mText.category(x, y)       = Category::Drawing;
+      mText.category(x+dx, y)    = Category::Drawing;
+      mText.category(x-dx, y+dy) = Category::Drawing;
 
       mGraph.moveTo(2*x-dx, 2*y+dy);
       mGraph.lineTo(+dx, -dy, Edge::Weak).setForm(form);
@@ -182,11 +182,11 @@ void GraphConstructor::createLeapfrog(int x, int y, int dx)
     auto ch = mText(x-1, y);
     if (ch == OneOf{L"-="} && mText(x+1, y) == ch)
     {
-      mText.drawing(x,   y-1) = true;
-      mText.drawing(x-1, y)   = true;
-      mText.drawing(x,   y)   = true;
-      mText.drawing(x+1, y)   = true;
-      mText.drawing(x,   y+1) = true;
+      mText.category(x,   y-1) = Category::Drawing;
+      mText.category(x-1, y)   = Category::Drawing;
+      mText.category(x,   y)   = Category::Drawing;
+      mText.category(x+1, y)   = Category::Drawing;
+      mText.category(x,   y+1) = Category::Drawing;
 
       mGraph.moveTo(2*x, 2*y-1);
       mGraph.lineTo(+dx, +1, Edge::Solid).setForm(Node::Bezier);
@@ -248,34 +248,34 @@ void GraphConstructor::createMoreEdges()
 
 void GraphConstructor::createHorzLine(int x, int y, Edge::Style style)
 {
-  auto& drawing   = mText.drawing(x, y);
-  int   length    = 2;
-  bool  checkDash = false;
+  auto& categoryXY = mText.category(x, y);
+  int   length     = 2;
+  bool  checkDash  = false;
 
   auto ch = mText(x+1, y);
   if (ch == OneOf{L"-="})
   {
-    drawing = true;
-    mText.drawing(x+1, y) = true;
+    categoryXY             = Category::Drawing;
+    mText.category(x+1, y) = Category::Drawing;
   }
   else if (ch == OneOf{L"+*<>"} || (ch == 'o' && !mText.isPartOfWord(x+1, y)))
   {
-    checkDash = true;
-    drawing   = true;
-    mText.drawing(x+1, y) = true;
+    checkDash              = true;
+    categoryXY             = Category::Drawing;
+    mText.category(x+1, y) = Category::Drawing;
   }
   else if (style == Edge::Solid && iswspace(ch) && mText(x+2, y) == '-')
   {
-    style   = Edge::Dashed;
-    length  = 4;
-    drawing = true;
-    mText.drawing(x+1, y) = true;
-    mText.drawing(x+2, y) = true;
+    style                  = Edge::Dashed;
+    length                 = 4;
+    categoryXY             = Category::Drawing;
+    mText.category(x+1, y) = Category::Drawing;
+    mText.category(x+2, y) = Category::Drawing;
   }
   else
     checkDash = true;
 
-  if (!drawing)
+  if (categoryXY != Category::Drawing)
     return;
 
   if (checkDash && style == Edge::Solid && mText(x-2, y) == '-' && iswspace(mText(x-1, y)))
@@ -289,16 +289,16 @@ void GraphConstructor::createHorzLine(int x, int y, Edge::Style style)
 
 void GraphConstructor::createVertLine(int x, int y, Edge::Style style)
 {
-  auto& drawing = mText.drawing(x, y);
+  auto& categoryXY = mText.category(x, y);
 
   auto ch = mText(x, y+1);
   if (ch == OneOf{L"|!:+*^"} || (ch == OneOf{L"ovV"} && !mText.isPartOfWord(x, y+1)))
   {
-    drawing = true;
-    mText.drawing(x, y+1) = true;
+    categoryXY             = Category::Drawing;
+    mText.category(x, y+1) = Category::Drawing;
   }
 
-  if (drawing)
+  if (categoryXY == Category::Drawing)
   {
     mGraph.moveTo(2*x, 2*y-1);
     mGraph.lineTo(+0, +2, style);
@@ -320,12 +320,12 @@ void GraphConstructor::createDiagLine(int x, int y, int dx, Edge::Style style)
   if (ch == oneOfThem || (ch == 'o' && !mText.isPartOfWord(x+dx, y+1)))
   {
     draw = true;
-    mText.drawing(x+dx, y+1) = true;
+    mText.category(x+dx, y+1) = Category::Drawing;
   }
 
   if (draw)
   {
-    mText.drawing(x, y) = true;
+    mText.category(x, y) = Category::Drawing;
     mGraph.moveTo(2*x-dx, 2*y-1);
     mGraph.lineTo(+2*dx, +2, style);
   }
@@ -335,8 +335,8 @@ void GraphConstructor::createDiagLine(int x, int y, int dx, Edge::Style style)
 
 void GraphConstructor::createHorzJunction(int x, int y, Node::Mark mark)
 {
-  auto& drawing = mText.drawing(x, y);
-  if (drawing)
+  auto& categoryXY = mText.category(x, y);
+  if (categoryXY == Category::Drawing)
   {
     // This has been marked already, by a line character to the left
     mGraph.moveTo(2*x, 2*y).setMark(mark);
@@ -345,8 +345,8 @@ void GraphConstructor::createHorzJunction(int x, int y, Node::Mark mark)
 
   if (mText(x+1, y) == OneOf{L"-="})
   {
-    drawing = true;
-    mText.drawing(x+1, y) = true;
+    categoryXY             = Category::Drawing;
+    mText.category(x+1, y) = Category::Drawing;
 
     mGraph.moveTo(2*x, 2*y).setMark(mark);
     mGraph.lineTo(+1, +0, Edge::Weak);
@@ -360,8 +360,8 @@ void GraphConstructor::createVertJunction(int x, int y, Node::Mark mark)
   if (mark == Node::DownArrow && mText.isPartOfWord(x, y))
     return;
 
-  auto& drawing = mText.drawing(x, y);
-  if (drawing)
+  auto& categoryXY = mText.category(x, y);
+  if (categoryXY == Category::Drawing)
   {
     // This has been marked already, by a line character to the top
     mGraph.moveTo(2*x, 2*y).setMark(mark);
@@ -370,8 +370,8 @@ void GraphConstructor::createVertJunction(int x, int y, Node::Mark mark)
 
   if (mText(x, y+1) == OneOf{L"|!:"})
   {
-    drawing = true;
-    mText.drawing(x, y+1) = true;
+    categoryXY             = Category::Drawing;
+    mText.category(x, y+1) = Category::Drawing;
 
     mGraph.moveTo(2*x, 2*y).setMark(mark);
     mGraph.lineTo(+0, +1, Edge::Weak);
@@ -385,8 +385,8 @@ void GraphConstructor::createJunction(int x, int y, Node::Mark mark)
   if (mark == Node::EmptyCircle && mText.isPartOfWord(x, y))
     return;
 
-  auto& drawing = mText.drawing(x, y);
-  if (drawing)
+  auto& categoryXY = mText.category(x, y);
+  if (categoryXY == Category::Drawing)
   {
     // This has been marked already, by a line character towards the upper left
     createJunctionTo(x, y, mark, -1, -1, OneOf{L"\\"});
@@ -395,10 +395,13 @@ void GraphConstructor::createJunction(int x, int y, Node::Mark mark)
     createJunctionTo(x, y, mark, -1, +0, OneOf{L"-=+"});
   }
 
-  drawing |= createJunctionTo(x, y, mark, +1, +0, OneOf{L"-=+"});
-  drawing |= createJunctionTo(x, y, mark, -1, +1, OneOf{L"/"});
-  drawing |= createJunctionTo(x, y, mark, +0, +1, OneOf{L"|!:+"});
-  drawing |= createJunctionTo(x, y, mark, +1, +1, OneOf{L"\\"});
+  bool drawn = createJunctionTo(x, y, mark, +1, +0, OneOf{L"-=+"});
+  drawn     |= createJunctionTo(x, y, mark, -1, +1, OneOf{L"/"});
+  drawn     |= createJunctionTo(x, y, mark, +0, +1, OneOf{L"|!:+"});
+  drawn     |= createJunctionTo(x, y, mark, +1, +1, OneOf{L"\\"});
+
+  if (drawn)
+    categoryXY = Category::Drawing;
 }
 
 
@@ -407,7 +410,7 @@ inline bool GraphConstructor::createJunctionTo(int x, int y, Node::Mark mark, in
 {
   if (mText(x+dx, y+dy) == oneOfThem)
   {
-    mText.drawing(x+dx, y+dy) = true;
+    mText.category(x+dx, y+dy) = Category::Drawing;
     mGraph.moveTo(2*x, 2*y).setMark(mark);
     mGraph.lineTo(+dx, +dy, Edge::Weak);
     return true;

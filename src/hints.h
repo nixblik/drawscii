@@ -16,47 +16,22 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "graph.h"
+#include "color.h"
 #include <forward_list>
-#include <vector>
-class QPainterPath;
+class TextImage;
 
 
 
-class Shape
+struct Hint
 {
-  public:
-    Shape() noexcept;
-    ~Shape();
+  Hint(int nx, int ny, Color c) noexcept;
 
-    void moveTo(Point p);
-    void lineTo(Point p);
-    void arcTo(Point p, Point ctrl);
-
-    QPainterPath path(double xScale, double yScale, double radius) const;
-    Edge::Style style; // FIXME: set/get insted
-
-  private:
-    enum ElementKind { Move, Line, Arc };
-    struct Element;
-
-    std::vector<Element> mPath;
+  const int x;
+  const int y; // FIXME: Add that constness to many other occasions
+  Color color;
 };
 
 
 
-struct Shapes
-{
-  using List = std::forward_list<Shape>;
-
-  List outer;
-  List inner;
-  List lines;
-};
-
-
-
-/// Analyzes the \a graph and finds all closed Shapes in it. A closed shape has
-/// lines all around it, and no arrows on the border.
-///
-Shapes findShapes(Graph& graph);
+using Hints = std::forward_list<Hint>;
+Hints findHints(TextImage& text);

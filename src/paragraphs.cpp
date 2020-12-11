@@ -109,7 +109,7 @@ ParagraphList findParagraphs(const TextImage& text)
     auto xe = static_cast<int>(text[y].size());
     for (int x = 0; x < xe; ++x)
     {
-      if (!text.isDrawing(x, y))
+      if (text.category(x, y) == Category::Text)
       {
         auto ch  = text(x, y);
         bool spc = iswspace(ch);

@@ -44,6 +44,9 @@ class Paragraph
     int bottom() const noexcept
     { return mTop + static_cast<int>(mRows.size()) - 1; }
 
+    int topInnerX() const noexcept
+    { return mX0; }
+
     const std::wstring& operator[](int row) const noexcept
     {
       assert(row >= 0 && static_cast<size_t>(row) < mRows.size());
@@ -56,13 +59,9 @@ class Paragraph
       return mX0 + mRows[static_cast<size_t>(row)].indent - mLeft;
     }
 
-/*  const TextPos& innerPoint() const noexcept
-    { return mFirstPt; }*/
-
     bool addRow(std::wstring&& row, int x, int y);
     Qt::Alignment alignment() const noexcept;
-
-    Color color;
+    mutable Color color;
 
   private:
     struct Row {

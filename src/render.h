@@ -17,11 +17,11 @@
 */
 #pragma once
 #include "graph.h"
+#include "hints.h"
 #include "shapes.h"
 #include "paragraphs.h"
-#include <list>
+#include <forward_list>
 #include <QPainter>
-class Hints;
 class TextImage;
 
 
@@ -34,7 +34,7 @@ enum class Shadow
 class Render
 {
   public:
-    Render(const TextImage& txt, const Graph& graph, const Shapes& shapes, const ParagraphList& paragraphs);
+    Render(const TextImage& txt, const Graph& graph, const Shapes& shapes, const Hints& hints, const ParagraphList& paragraphs);
     ~Render();
 
     QSize size() const noexcept;
@@ -42,14 +42,19 @@ class Render
     void setLineWidth(float lineWd);
     void setShadows(Shadow mode);
     void setAntialias(bool enable);
-    void apply(const Hints& hints);
     void paint(QPaintDevice* dev);
 
   private:
+    struct ShapePath;
+    using ShapePaths = std::forward_list<ShapePath>;
+
     void computeRenderParams();
     QPoint graphToImage(Point p) const noexcept;
-    QRect textRectToImage(const Paragraph& p) const noexcept;
-    void drawShapes(const Shapes::List& shapes, const QColor& defaultColor, int delta);
+    QPoint textToImage(int x, int y) const noexcept;
+    QRect textToImage(const Paragraph& p) const noexcept;
+    ShapePaths shapePaths(const Shapes::List& shapes, int delta) const;
+    void applyHints(const QColor& defaultColor);
+    void drawShapes(const ShapePaths& shapes, const QColor& defaultColor);
     void drawLines();
     void drawMarks();
     void drawRoundCorner(Node node, Point pos);
@@ -59,6 +64,7 @@ class Render
     const TextImage& mTxt;
     const Graph& mGraph;
     const Shapes& mShapes;
+    const Hints& mHints;
     const ParagraphList& mParagraphs;
     QFont mFont;
     QPen mSolidPen;
@@ -77,4 +83,7 @@ class Render
     int mShadowDelta;
     int mCircle;
     QRect mBoundingBox;
+
+    ShapePaths mOuterShapes;
+    ShapePaths mInnerShapes;
 };

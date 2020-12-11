@@ -25,6 +25,11 @@
 
 
 
+enum class Category : uint8_t
+{ Text = 0, Drawing, Other };
+
+
+
 /// Provides an image-like interface to a text, where characters can be
 /// accessed by row and column. Access out of the image bounds is allowed in
 /// order to ease scanning the text for patterns. For the same reason, indices
@@ -60,11 +65,11 @@ class TextImage
 
     /// Whether the character in column \a x, row \a y has been classified as a
     /// line-drawing character. Initially, all content is considered text.
-    bool isDrawing(int x, int y) const noexcept;
+    Category category(int x, int y) const noexcept;
 
     /// A reference to the classification of the character in column \a x, row
     /// \a y as drawing.
-    uint8_t& drawing(int x, int y) noexcept;
+    Category& category(int x, int y) noexcept;
 
     /// Whether the character in column \a x, row \a y is a letter and has an
     /// adjacent letter at its left or right.
@@ -75,7 +80,7 @@ class TextImage
       explicit Line(std::wstring s);
 
       std::wstring str;
-      std::vector<uint8_t> drawing;
+      std::vector<Category> categories;
     };
 
     TextImage() noexcept;
