@@ -73,8 +73,8 @@ class Paragraph
     };
 
     std::vector<Row> mRows;
-    int mTop;
-    int mX0;
+    const int mTop;
+    const int mX0;
     int mLeft;
     int mRight;
 };

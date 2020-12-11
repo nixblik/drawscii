@@ -254,7 +254,7 @@ void ShapeFinder::findLineAt(Node::EdgeRef edge0)
   }
 
   shape.lineTo(curEdge.target());
-  shape.style = style;
+  shape.setStyle(style);
 
   mShapes.lines.emplace_front(std::move(shape));
 }
@@ -262,7 +262,7 @@ void ShapeFinder::findLineAt(Node::EdgeRef edge0)
 
 
 inline Shape::Shape() noexcept
-  : style{Edge::Solid}
+  : mStyle{Edge::Solid}
 {}
 
 

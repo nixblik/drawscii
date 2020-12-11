@@ -38,7 +38,7 @@ class Render
     ~Render();
 
     QSize size() const noexcept;
-    void setFont(const QFont& font); // FIXME: Might try to set string instead
+    void setFont(const QFont& font);
     void setLineWidth(float lineWd);
     void setShadows(Shadow mode);
     void setAntialias(bool enable);

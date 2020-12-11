@@ -260,7 +260,7 @@ void Render::drawLines()
   mPainter.setBrush(Qt::NoBrush);
   for (auto& line: mShapes.lines)
   {
-    switch (line.style)
+    switch (line.style())
     {
       case Edge::Weak:
       case Edge::Solid:  mPainter.setPen(mSolidPen); break;

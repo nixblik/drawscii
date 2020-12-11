@@ -27,7 +27,7 @@ struct Hint
   Hint(int nx, int ny, Color c) noexcept;
 
   const int x;
-  const int y; // FIXME: Add that constness to many other occasions
+  const int y;
   Color color;
 };
 

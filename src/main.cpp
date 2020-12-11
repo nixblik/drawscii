@@ -306,6 +306,64 @@ TextImage readTextImage(QString fname, QTextCodec* codec, uint tabWidth)
 
 
 
+void renderSvg(Render& render, const CmdLineArgs& args)
+{
+  OutputFile fd{args.outputFile};
+  QSvgGenerator svg;
+  svg.setOutputDevice(&fd);
+  svg.setViewBox(QRect{QPoint{0, 0}, render.size()});
+
+  render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
+  render.paint(&svg);
+  fd.done();
+}
+
+
+
+void renderPdf(Render& render, const CmdLineArgs& args)
+{
+  if (args.bg != Qt::white)
+    throw std::runtime_error{"PDF output format must not have background color"};
+
+  if (!args.antialias)
+    std::clog << "warning: Anti-alias cannot be disabled for PDF output" << std::endl;
+
+  OutputFile fd{args.outputFile};
+  QPdfWriter writer{&fd};
+  writer.setPageSize(QPageSize(render.size(), QPageSize::Point));
+  writer.setPageMargins(QMarginsF{});
+  writer.setResolution(72 /*dpi*/);
+
+  render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
+  render.paint(&writer);
+  fd.done();
+}
+
+
+
+void renderBitmap(Render& render, const QByteArray& suffix, const CmdLineArgs& args)
+{
+  bool transparency = (args.bg.alpha() != 255);
+  if (transparency && suffix != "png")
+    throw std::runtime_error{"Must use PNG output format for transparent background"};
+
+  QImage img{render.size(), (transparency ? QImage::Format_ARGB32_Premultiplied : QImage::Format_RGB32)};
+  img.fill(args.bg);
+
+  render.setShadows(args.shadows >= 0 ? Shadow::Blurred : Shadow::None);
+  render.setAntialias(args.antialias);
+  render.paint(&img);
+
+  OutputFile fd{args.outputFile};
+  QImageWriter writer{&fd, suffix};
+  if (!writer.write(img))
+    throw RuntimeError{fd.fileName(), ": ", writer.errorString()};
+
+  fd.done();
+}
+
+
+
 int main(int argc, char* argv[])
 try
 {
@@ -339,55 +397,11 @@ try
 
   auto suffix = outputInfo.suffix().toLatin1();
   if (suffix == "svg")
-  {
-    // FIXME: Put these in extra functions
-    OutputFile fd{args.outputFile};
-    QSvgGenerator svg;
-    svg.setOutputDevice(&fd);
-    svg.setViewBox(QRect{QPoint{0, 0}, render.size()});
-
-    render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
-    render.paint(&svg);
-    fd.done();
-  }
+    renderSvg(render, args);
   else if (suffix == "pdf")
-  {
-    if (args.bg != Qt::white)
-      throw std::runtime_error{"PDF output format must not have background color"};
-
-    if (!args.antialias)
-      std::clog << "warning: Anti-alias cannot be disabled for PDF output" << std::endl;
-
-    OutputFile fd{args.outputFile};
-    QPdfWriter writer{&fd};
-    writer.setPageSize(QPageSize(render.size(), QPageSize::Point));
-    writer.setPageMargins(QMarginsF{});
-    writer.setResolution(72 /*dpi*/);
-
-    render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
-    render.paint(&writer);
-    fd.done();
-  }
+    renderPdf(render, args);
   else if (QImageWriter::supportedImageFormats().contains(suffix))
-  {
-    bool transparency = (args.bg.alpha() != 255);
-    if (transparency && suffix != "png")
-      throw std::runtime_error{"Must use PNG output format for transparent background"};
-
-    QImage img{render.size(), (transparency ? QImage::Format_ARGB32_Premultiplied : QImage::Format_RGB32)};
-    img.fill(args.bg);
-
-    render.setShadows(args.shadows >= 0 ? Shadow::Blurred : Shadow::None);
-    render.setAntialias(args.antialias);
-    render.paint(&img);
-
-    OutputFile fd{args.outputFile};
-    QImageWriter writer{&fd, suffix};
-    if (!writer.write(img))
-      throw RuntimeError{fd.fileName(), ": ", writer.errorString()};
-
-    fd.done();
-  }
+    renderBitmap(render, suffix, args);
   else
     throw RuntimeError{args.outputFile, ": Unknown graphics format"};
 

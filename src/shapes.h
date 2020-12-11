@@ -33,14 +33,20 @@ class Shape
     void lineTo(Point p);
     void arcTo(Point p, Point ctrl);
 
+    Edge::Style style() const noexcept
+    { return mStyle; }
+
+    void setStyle(Edge::Style style) noexcept
+    { mStyle = style; }
+
     QPainterPath path(double xScale, double yScale, double radius) const;
-    Edge::Style style; // FIXME: set/get insted
 
   private:
     enum ElementKind { Move, Line, Arc };
     struct Element;
 
     std::vector<Element> mPath;
+    Edge::Style mStyle;
 };
 
 

@@ -108,8 +108,8 @@ class Edge
 class Node
 {
   public:
-    class EdgeRef;
     class ConstEdgeRef;
+    class EdgeRef;
 
     enum Form { Straight, Bezier };
     enum Mark {
@@ -127,10 +127,8 @@ class Node
     Node(Node&&) noexcept
     =default;
 
-    Node& operator=(Node&&) noexcept
-    =default;
-
     Node(const Node&) =delete;
+    Node& operator=(Node&&) noexcept =delete;
     Node& operator=(const Node&) =delete;
 
     int x() const noexcept
@@ -174,8 +172,8 @@ class Node
 
   private:
     Edge mEdges[8];
-    int16_t mX;
-    int16_t mY;
+    const int16_t mX;
+    const int16_t mY;
     uint8_t mMark;
     uint8_t mForm;
     uint8_t mDone;
@@ -183,6 +181,7 @@ class Node
 
 
 
+// FIXME: Use ConstEdgePtr instead of Ref; same for node, do not take a ref
 class Node::ConstEdgeRef
 {
   public:
@@ -246,6 +245,7 @@ class Node::EdgeRef : public Node::ConstEdgeRef
 
 inline auto Node::edge(int idx) const noexcept -> ConstEdgeRef
 { return {this, idx}; }
+
 
 inline auto Node::edge(int idx) noexcept -> EdgeRef
 { return {this, idx}; }
