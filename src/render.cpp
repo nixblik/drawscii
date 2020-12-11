@@ -18,6 +18,7 @@
 #include "render.h"
 #include "blur.h"
 #include "textimage.h"
+#include <cmath>
 #include <QImage>
 #include <QPainter>
 
@@ -73,20 +74,27 @@ void Render::setAntialias(bool enable)
 void Render::computeRenderParams()
 {
   QFontMetrics fm{mFont};
-  mScaleX = fm.width("w");
-  mScaleY = fm.height(); // TODO: Provide compression for x and y axis, but this depends on the font, so be careful
-  mDeltaX = qRound(mScaleX * 0.5);
-  mDeltaY = qRound(mScaleY * 0.5);
+  mScaleX = 0.5 * fm.width("w");
+  mScaleY = 0.5 * fm.height(); // TODO: Provide compression for x and y axis, but this depends on the font, so be careful
   mRadius = (mScaleX + mScaleY) * 0.333333;
   mCircle = qRound((mScaleX + mScaleY) * 0.2);
   mShadowDelta = 2;
 
+  // Determine size and position of the output
+  mBoundingBox = QRect{graphToImage({mGraph.left(), mGraph.top()}), graphToImage({mGraph.right(), mGraph.bottom()})};
+  for (auto& para: mParagraphs)
+    mBoundingBox = mBoundingBox.united(textRectToImage(para));
+
+  int ltExtend = qRound((mScaleX + mScaleY) * 0.5);
+  int rbExtend = ltExtend + (mShadowMode == Shadow::None ? 0 : mShadowDelta);
+  mBoundingBox.adjust(-ltExtend, -ltExtend, rbExtend, rbExtend);
+
   // Predraw the arrow marks
   auto& arrow = mMarks[Node::RightArrow];
   arrow.clear();
-  arrow.append(QPoint{2 * mDeltaX, 0});
-  arrow.append(QPoint{-mDeltaX, qRound(-0.8 * mDeltaY)});
-  arrow.append(QPoint{-mDeltaX, qRound( 0.8 * mDeltaY)});
+  arrow.append(QPoint{qRound(mScaleX), 0});
+  arrow.append(QPoint{qRound(-0.5 * mScaleX), qRound(-0.4 * mScaleY)});
+  arrow.append(QPoint{qRound(-0.5 * mScaleX), qRound( 0.4 * mScaleY)});
 
   auto rotated = [](const QPolygonF& polygon, int angle)
   {
@@ -103,7 +111,10 @@ void Render::computeRenderParams()
 
 
 QSize Render::size() const noexcept
-{ return QSize{mGraph.width() * mScaleX + mShadowDelta, mGraph.height() * mScaleY + mShadowDelta}; }
+{
+  assert(mBoundingBox.isValid());
+  return mBoundingBox.size();
+}
 
 
 /*
@@ -148,7 +159,7 @@ void Render::paint(QPaintDevice* dev)
   mPainter.begin(dev);
   mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
   mPainter.setFont(mFont);
-  mPainter.translate(mDeltaX, mDeltaY);
+  mPainter.translate(-mBoundingBox.topLeft());
 
   if (mAntialias)
   {
@@ -187,13 +198,10 @@ void Render::paint(QPaintDevice* dev)
 void Render::drawShapes(const Shapes::List& shapes, const QColor& defaultColor, int delta)
 {
   QPen pen{mSolidPen};
-  auto scaleX = mScaleX * 0.5;
-  auto scaleY = mScaleY * 0.5;
-  auto radius = mRadius * 0.5;
 
   for (auto& shape: shapes)
   {
-    auto path = shape.path(scaleX, scaleY, radius);
+    auto path = shape.path(mScaleX, mScaleY, mRadius);
     if (delta)
       path.translate(delta, delta);
 
@@ -209,10 +217,6 @@ void Render::drawShapes(const Shapes::List& shapes, const QColor& defaultColor, 
 
 void Render::drawLines()
 {
-  auto scaleX = mScaleX * 0.5;
-  auto scaleY = mScaleY * 0.5;
-  auto radius = mRadius * 0.5;
-
   mPainter.setBrush(Qt::NoBrush);
   for (auto& line: mShapes.lines)
   {
@@ -225,19 +229,19 @@ void Render::drawLines()
 
       case Edge::Double:
         mPainter.setPen(mDoubleOuterPen);
-        mPainter.drawPath(line.path(scaleX, scaleY, radius));
+        mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
         mPainter.setPen(mDoubleInnerPen);
         break;
     }
 
-    mPainter.drawPath(line.path(scaleX, scaleY, radius));
+    mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
   }
 }
 
 
 
-inline QPoint Render::toImage(Point pos) const noexcept
-{ return QPoint{pos.x*mScaleX, pos.y*mScaleY}; }
+inline QPoint Render::graphToImage(Point p) const noexcept
+{ return QPoint(qRound(p.x * mScaleX), qRound(p.y * mScaleY)); };
 
 
 
@@ -256,19 +260,19 @@ void Render::drawMarks()
       case Node::DownArrow:
         mPainter.setPen(Qt::NoPen);
         mPainter.setBrush(mBrush);
-        mPainter.drawPolygon(mMarks[node.mark()].translated(toImage(node.point())));
+        mPainter.drawPolygon(mMarks[node.mark()].translated(graphToImage(node.point())));
         break;
 
       case Node::EmptyCircle:
         mPainter.setPen(mSolidPen);
         mPainter.setBrush(Qt::white);
-        mPainter.drawEllipse(toImage(node.point()), mCircle, mCircle);
+        mPainter.drawEllipse(graphToImage(node.point()), mCircle, mCircle);
         break;
 
       case Node::FilledCircle:
         mPainter.setPen(Qt::NoPen);
         mPainter.setBrush(mBrush);
-        mPainter.drawEllipse(toImage(node.point()), mCircle, mCircle);
+        mPainter.drawEllipse(graphToImage(node.point()), mCircle, mCircle);
         break;
     }
   }
@@ -276,8 +280,15 @@ void Render::drawMarks()
 
 
 
-inline QRect Render::imageRect(const Paragraph& p) const noexcept
-{ return QRect{p.left()*mScaleX-mDeltaX, p.top()*mScaleY-mDeltaY, p.width()*mScaleX, p.height()*mScaleY}; }
+inline QRect Render::textRectToImage(const Paragraph& p) const noexcept
+{
+  auto left = qRound(mScaleX * (p.left() * 2 - 1));
+  auto wd   = qRound(mScaleX * p.width() * 2);
+  auto top  = qRound(mScaleY * (p.top() * 2 - 1));
+  auto ht   = qRound(mScaleY * p.height() * 2);
+
+  return QRect{left, top, wd, ht};
+}
 
 
 
@@ -289,7 +300,7 @@ void Render::drawParagraphs()
   for (auto& para: mParagraphs)
   {
     auto align = para.alignment();
-    auto rect  = imageRect(para);
+    auto rect  = textRectToImage(para);
 
     if (para.color.isValid())
       mPainter.setPen(para.color);
@@ -297,10 +308,10 @@ void Render::drawParagraphs()
     for (int rowIdx = 0; rowIdx < para.height(); ++rowIdx)
     {
       auto& rowTxt = para[rowIdx];
-      QRect lrect{rect.x(), rect.y() + rowIdx*mScaleY, rect.width(), mScaleY};
+      auto  lrect  = rect.adjusted(0, qRound(rowIdx * 2 * mScaleY), 0, 0); // FIXME: We might as well just use textRectToImage here and below
 
       if (align == Qt::Alignment{})
-        lrect.adjust(para.indent(rowIdx) * mScaleX, 0, 0, 0);
+        lrect.adjust(qRound(para.indent(rowIdx) * 2 * mScaleX), 0, 0, 0);
 
       mPainter.drawText(lrect, static_cast<int>(align), QString::fromStdWString(rowTxt)); // FIXME: QString conversion is expensive
     }

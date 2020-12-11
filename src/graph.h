@@ -269,11 +269,17 @@ class Graph
     const Node* end() const noexcept
     { return &*mNodes.end(); }
 
-    int width() const noexcept
-    { return mRight - mLeft + 1; }
+    int left() const noexcept
+    { return mLeft; }
 
-    int height() const noexcept
-    { return mBottom - mTop + 1; }
+    int right() const noexcept
+    { return mRight; }
+
+    int top() const noexcept
+    { return mTop; }
+
+    int bottom() const noexcept
+    { return mBottom; }
 
     const Node& operator[](Point p) const;
     Node& operator[](Point p);

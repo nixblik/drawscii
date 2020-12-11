@@ -47,8 +47,8 @@ class Render
 
   private:
     void computeRenderParams();
-    QPoint toImage(Point pos) const noexcept;
-    QRect imageRect(const Paragraph& p) const noexcept;
+    QPoint graphToImage(Point p) const noexcept;
+    QRect textRectToImage(const Paragraph& p) const noexcept;
     void drawShapes(const Shapes::List& shapes, const QColor& defaultColor, int delta);
     void drawLines();
     void drawMarks();
@@ -71,11 +71,10 @@ class Render
     Shadow mShadowMode;
     bool mAntialias;
 
-    int mScaleX;
-    int mScaleY;
-    int mDeltaX;
-    int mDeltaY;
+    double mScaleX;
+    double mScaleY;
+    double mRadius;
     int mShadowDelta;
     int mCircle;
-    double mRadius;
+    QRect mBoundingBox;
 };
