@@ -224,10 +224,12 @@ void ShapeFinder::findLineAt(Node::edge_ptr edge0)
 
   auto curEdge = edge0;
   auto style   = edge0->style();
+  bool drawCur = false;
 
   while (!curEdge->done())
   {
     curEdge->setDone();
+    drawCur = true;
 
     auto curTarget = &mGraph[curEdge->target()];
     curTarget->reverseEdge(curEdge)->setDone();
@@ -246,16 +248,21 @@ void ShapeFinder::findLineAt(Node::edge_ptr edge0)
     // Only curved corners have to be drawn, otherwise lines are straight
     if (curTarget->form() == Node::Bezier)
     {
+      assert(!nextEdge->done());
       shape.lineTo(curEdge->source()->point());
       shape.arcTo(nextEdge->target(), curTarget->point());
     }
+    else
+      shape.lineTo(curEdge->target());
 
+    drawCur = false;
     curEdge = nextEdge;
   }
 
-  shape.lineTo(curEdge->target());
-  shape.setStyle(style);
+  if (drawCur)
+    shape.lineTo(curEdge->target());
 
+  shape.setStyle(style);
   mShapes.lines.emplace_front(std::move(shape));
 }
 
