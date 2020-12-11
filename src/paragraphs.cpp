@@ -21,7 +21,7 @@
 
 
 
-inline Paragraph::Row::Row(std::wstring s, int i) noexcept
+inline Paragraph::Row::Row(wstring_view s, int i) noexcept
   : str{std::move(s)},
     indent{i}
 {}
@@ -32,7 +32,7 @@ inline int Paragraph::Row::length() const noexcept
 
 
 
-Paragraph::Paragraph(std::wstring line, int x, int y)
+Paragraph::Paragraph(wstring_view line, int x, int y)
   : mTop{y},
     mX0{x},
     mLeft{x},
@@ -43,7 +43,7 @@ Paragraph::Paragraph(std::wstring line, int x, int y)
 
 
 
-bool Paragraph::addRow(std::wstring&& row, int x, int y)
+bool Paragraph::addRow(wstring_view row, int x, int y)
 {
   assert(y <= bottom() + 1);
   assert(!mRows.empty());
@@ -98,11 +98,13 @@ Qt::Alignment Paragraph::alignment() const noexcept
 
 ParagraphList findParagraphs(const TextImage& text)
 {
+  using wstring_view = std::experimental::wstring_view;
+
   ParagraphList actives;
   ParagraphList paragraphs;
-  std::wstring row;
   size_t spaces = 0;
-  int    lineX  = 0;
+  int    rowX0  = 0;
+  size_t rowLen = 0;
 
   for (int y = 0; y < text.height(); ++y)
   {
@@ -115,21 +117,22 @@ ParagraphList findParagraphs(const TextImage& text)
         bool spc = iswspace(ch);
         spaces   = spc ? spaces + 1 : 0;
 
-        if (row.empty())
-          lineX = x;
+        if (!rowLen)
+          rowX0 = x;
 
-        if (!spc || !row.empty())
-          row.push_back(ch);
+        if (!spc || rowLen)
+          ++rowLen;
 
         if (spaces <= 1 && x + 1 < xe)
           continue;
       }
 
-      if (row.empty())
+      if (!rowLen)
         continue;
 
       // Try to add row to one of the paragraphs
-      row.erase(row.size() - spaces);
+      wstring_view row{&text[y][static_cast<size_t>(rowX0)], rowLen - spaces};
+      rowLen = 0;
 
       for (auto para = actives.begin(); para != actives.end(); )
       {
@@ -138,15 +141,15 @@ ParagraphList findParagraphs(const TextImage& text)
           auto old = para++;
           paragraphs.splice(paragraphs.end(), actives, old);
         }
-        else if (para->addRow(std::move(row), lineX, y))
-          break;
+        else if (para->addRow(row, rowX0, y))
+          goto ContinueOuterLoop;
         else
           ++para;
       }
 
       // If the row fits nowhere, make a new paragraph
-      if (!row.empty())
-        actives.emplace_back(std::move(row), lineX, y);
+      actives.emplace_back(row, rowX0, y);
+    ContinueOuterLoop:;
     }
   }
 

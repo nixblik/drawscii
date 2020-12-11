@@ -18,7 +18,7 @@
 #pragma once
 #include "color.h"
 #include <list>
-#include <string>
+#include <experimental/string_view>
 #include <vector>
 class TextImage;
 
@@ -26,8 +26,10 @@ class TextImage;
 
 class Paragraph
 {
+  using wstring_view = std::experimental::wstring_view;
+
   public:
-    Paragraph(std::wstring row, int x, int y);
+    Paragraph(wstring_view row, int x, int y);
 
     int top() const noexcept
     { return mTop; }
@@ -47,7 +49,7 @@ class Paragraph
     int topInnerX() const noexcept
     { return mX0; }
 
-    const std::wstring& operator[](int row) const noexcept
+    const wstring_view& operator[](int row) const noexcept
     {
       assert(row >= 0 && static_cast<size_t>(row) < mRows.size());
       return mRows[static_cast<size_t>(row)].str;
@@ -59,16 +61,16 @@ class Paragraph
       return mX0 + mRows[static_cast<size_t>(row)].indent - mLeft;
     }
 
-    bool addRow(std::wstring&& row, int x, int y);
+    bool addRow(wstring_view row, int x, int y);
     Qt::Alignment alignment() const noexcept;
     mutable Color color;
 
   private:
     struct Row {
-      Row(std::wstring s, int i) noexcept;
+      Row(wstring_view s, int i) noexcept;
       int length() const noexcept;
 
-      std::wstring str; // FIXME: Don't copy. Use stringrefs into TextImage
+      wstring_view str;
       int indent;
     };
 

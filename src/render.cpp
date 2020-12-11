@@ -357,7 +357,8 @@ void Render::drawParagraphs()
       if (align == Qt::Alignment{})
         lrect.adjust(qRound(para.indent(rowIdx) * 2 * mScaleX), 0, 0, 0);
 
-      mPainter.drawText(lrect, static_cast<int>(align), QString::fromStdWString(rowTxt)); // FIXME: QString conversion is expensive
+      auto rowStr = QString::fromWCharArray(rowTxt.data(), static_cast<int>(rowTxt.size()));
+      mPainter.drawText(lrect, static_cast<int>(align), rowStr);
     }
   }
 }
