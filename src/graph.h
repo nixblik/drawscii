@@ -88,8 +88,8 @@ class Edge
       : mStyle{None}
     {}
 
-    explicit operator bool() const noexcept
-    { return style() != Edge::None; }
+    bool exists() const noexcept
+    { return mStyle != Edge::None; }
 
     Style style() const noexcept
     { return static_cast<Style>(mStyle); }
@@ -108,8 +108,9 @@ class Edge
 class Node
 {
   public:
-    class ConstEdgeRef;
     class EdgeRef;
+    class edge_ptr;
+    class const_edge_ptr;
 
     enum Form { Straight, Bezier };
     enum Mark {
@@ -158,11 +159,11 @@ class Node
     constexpr int numberOfEdges() const noexcept
     { return 8; }
 
-    ConstEdgeRef edge(int idx) const noexcept;
-    EdgeRef edge(int idx) noexcept;
-    EdgeRef nextRightwardTodoEdge(Angle prevAngle) noexcept;
-    EdgeRef reverseEdge(const ConstEdgeRef& edge) noexcept;
-    EdgeRef continueLine(const ConstEdgeRef& prevEdge) noexcept;
+    const_edge_ptr edge(int idx) const noexcept;
+    edge_ptr edge(int idx) noexcept;
+    edge_ptr nextRightwardTodoEdge(Angle prevAngle) noexcept;
+    edge_ptr reverseEdge(const_edge_ptr edge) noexcept;
+    edge_ptr continueLine(const_edge_ptr prevEdge) noexcept;
 
     bool edgesAllDone() const noexcept
     { return mDone == 0xFF; }
@@ -181,24 +182,29 @@ class Node
 
 
 
-// FIXME: Use ConstEdgePtr instead of Ref; same for node, do not take a ref
-class Node::ConstEdgeRef
+class Node::EdgeRef
 {
   public:
     using Style = Edge::Style;
 
-    ConstEdgeRef(const Node* node, int index) noexcept
+    EdgeRef(Node* node, int index) noexcept
       : mNode{node},
         mIndex{index}
     {}
 
-    explicit operator bool() const noexcept
-    { return static_cast<bool>(mNode->mEdges[mIndex]); }
+    bool exists() const noexcept
+    { return mNode->mEdges[mIndex].exists(); }
 
     Style style() const noexcept
     { return mNode->mEdges[mIndex].style(); }
 
+    void setStyle(Style style) noexcept
+    { source()->mEdges[index()].setStyle(style); }
+
     const Node* source() const noexcept
+    { return mNode; }
+
+    Node* source() noexcept
     { return mNode; }
 
     Point target() const noexcept;
@@ -211,44 +217,68 @@ class Node::ConstEdgeRef
     bool done() const noexcept // FIXME: Too expensive. Start out by marking only edges todo that exist. Then the test will be much quicker in Node::allEdgesDone()
     { return mNode->mDone & (1u << mIndex); }
 
+    void setDone() noexcept
+    { source()->mDone |= (1u << index()); }
+
     /// \internal
     int index() const noexcept
     { return mIndex; }
 
   private:
-    const Node* mNode;
+    Node* mNode;
     int mIndex;
 };
 
 
 
-class Node::EdgeRef : public Node::ConstEdgeRef
+class Node::edge_ptr
 {
   public:
-    using Style = Edge::Style;
-
-    EdgeRef(Node* node, int index) noexcept
-      : ConstEdgeRef{node, index}
+    edge_ptr(Node* node, int index) noexcept
+      : mRef{node, index}
     {}
 
-    Node* source() noexcept
-    { return const_cast<Node*>(ConstEdgeRef::source()); }
+    explicit operator bool() const noexcept
+    { return mRef.exists(); }
 
-    void setStyle(Style style) noexcept
-    { source()->mEdges[index()].setStyle(style); }
+    EdgeRef* operator->() noexcept
+    { return &mRef; }
 
-    void setDone() noexcept
-    { source()->mDone |= (1u << index()); }
+  private:
+    EdgeRef mRef;
 };
 
 
 
-inline auto Node::edge(int idx) const noexcept -> ConstEdgeRef
-{ return {this, idx}; }
+class Node::const_edge_ptr
+{
+  public:
+    const_edge_ptr(edge_ptr other) noexcept
+      : mRef{other->source(), other->index()}
+    {}
+
+    const_edge_ptr(const Node* node, int index) noexcept
+      : mRef{const_cast<Node*>(node), index}
+    {}
+
+    explicit operator bool() const noexcept
+    { return mRef.exists(); }
+
+    const EdgeRef* operator->() noexcept
+    { return &mRef; }
+
+  private:
+    EdgeRef mRef;
+};
 
 
-inline auto Node::edge(int idx) noexcept -> EdgeRef
-{ return {this, idx}; }
+
+inline auto Node::edge(int idx) const noexcept -> const_edge_ptr
+{ return const_edge_ptr{this, idx}; }
+
+
+inline auto Node::edge(int idx) noexcept -> edge_ptr
+{ return edge_ptr{this, idx}; }
 
 
 

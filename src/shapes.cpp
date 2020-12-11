@@ -70,10 +70,10 @@ class ShapeFinder
 
   private:
     void findClosedShapes();
-    void findClosedShapeAt(Node::EdgeRef edge0);
+    void findClosedShapeAt(Node::edge_ptr edge0);
     void addClosedShape(ShapePoints::const_iterator begin, ShapePoints::const_iterator end, Angle angle, int dashCt);
     void findLines();
-    void findLineAt(Node::EdgeRef edge0);
+    void findLineAt(Node::edge_ptr edge0);
 
     Graph& mGraph;
     ShapePoints mShapePts;
@@ -116,7 +116,7 @@ void ShapeFinder::findClosedShapes()
 
     for (int i = 0, endi = node.numberOfEdges(); i < endi; ++i)
       if (auto edge = node.edge(i))
-        if (!edge.done())
+        if (!edge->done())
           findClosedShapeAt(edge);
   }
 
@@ -126,16 +126,16 @@ void ShapeFinder::findClosedShapes()
 
 
 
-void ShapeFinder::findClosedShapeAt(Node::EdgeRef edge0)
+void ShapeFinder::findClosedShapeAt(Node::edge_ptr edge0)
 {
-  edge0.setDone();
-  auto node1 = &mGraph[edge0.target()];
+  edge0->setDone();
+  auto node1 = &mGraph[edge0->target()];
   if (!node1->isClosedMark())
     return;
 
   mShapePts.clear();
-  mShapePts.emplace_back(edge0.source(), Angle{0}, Angle{0}, 0);
-  mShapePts.emplace_back(node1, edge0.angle(), Angle{0}, (edge0.style() == Edge::Dashed));
+  mShapePts.emplace_back(edge0->source(), Angle{0}, Angle{0}, 0);
+  mShapePts.emplace_back(node1, edge0->angle(), Angle{0}, (edge0->style() == Edge::Dashed));
 
   while (mShapePts.size() > 1)
   {
@@ -149,14 +149,14 @@ void ShapeFinder::findClosedShapeAt(Node::EdgeRef edge0)
     }
 
     // Check that new point is ok for shape
-    edge.setDone();
-    auto nextNode  = &mGraph[edge.target()];
+    edge->setDone();
+    auto nextNode  = &mGraph[edge->target()];
     if (!nextNode->isClosedMark())
       continue;
 
-    auto nextAngle = edge.angle();
+    auto nextAngle = edge->angle();
     auto angleSum  = cur.angleSum + nextAngle.relativeTo(cur.angle);
-    auto dashCt    = cur.dashCt + (edge.style() == Edge::Dashed);
+    auto dashCt    = cur.dashCt + (edge->style() == Edge::Dashed);
     mShapePts.emplace_back(nextNode, nextAngle, angleSum, dashCt);
 
     // Check whether new point closes the shape
@@ -210,34 +210,34 @@ void ShapeFinder::findLines()
 
     for (int i = 0, endi = node.numberOfEdges(); i < endi; ++i)
       if (auto edge = node.edge(i))
-        if (!edge.done())
+        if (!edge->done())
           findLineAt(edge);
   }
 }
 
 
 
-void ShapeFinder::findLineAt(Node::EdgeRef edge0)
+void ShapeFinder::findLineAt(Node::edge_ptr edge0)
 {
   Shape shape;
-  shape.moveTo(edge0.source()->point());
+  shape.moveTo(edge0->source()->point());
 
   auto curEdge = edge0;
-  auto style   = edge0.style();
+  auto style   = edge0->style();
 
-  while (!curEdge.done())
+  while (!curEdge->done())
   {
-    curEdge.setDone();
+    curEdge->setDone();
 
-    auto curTarget = &mGraph[curEdge.target()];
-    curTarget->reverseEdge(curEdge).setDone();
+    auto curTarget = &mGraph[curEdge->target()];
+    curTarget->reverseEdge(curEdge)->setDone();
 
     // Follow the line to the next edge and check that we can draw on
     auto nextEdge = curTarget->continueLine(curEdge);
     if (!nextEdge)
       break;
 
-    auto nextStyle = nextEdge.style();
+    auto nextStyle = nextEdge->style();
     if (style == Edge::Weak)
       style = nextStyle;
     else if (style != nextStyle && nextStyle != Edge::Weak)
@@ -246,14 +246,14 @@ void ShapeFinder::findLineAt(Node::EdgeRef edge0)
     // Only curved corners have to be drawn, otherwise lines are straight
     if (curTarget->form() == Node::Bezier)
     {
-      shape.lineTo(curEdge.source()->point());
-      shape.arcTo(nextEdge.target(), curTarget->point());
+      shape.lineTo(curEdge->source()->point());
+      shape.arcTo(nextEdge->target(), curTarget->point());
     }
 
     curEdge = nextEdge;
   }
 
-  shape.lineTo(curEdge.target());
+  shape.lineTo(curEdge->target());
   shape.setStyle(style);
 
   mShapes.lines.emplace_front(std::move(shape));

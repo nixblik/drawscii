@@ -44,7 +44,7 @@ inline Node::Node(int x, int y)
 
 
 
-Point Node::ConstEdgeRef::target() const noexcept
+Point Node::EdgeRef::target() const noexcept
 {
   auto p = mNode->point();
   return Point{p.x + dx(), p.y + dy()};
@@ -52,7 +52,7 @@ Point Node::ConstEdgeRef::target() const noexcept
 
 
 
-int Node::ConstEdgeRef::dx() const noexcept
+int Node::EdgeRef::dx() const noexcept
 {
   assert(mIndex >= 0 && mIndex < 8);
 
@@ -62,7 +62,7 @@ int Node::ConstEdgeRef::dx() const noexcept
 
 
 
-int Node::ConstEdgeRef::dy() const noexcept
+int Node::EdgeRef::dy() const noexcept
 {
   assert(mIndex >= 0 && mIndex < 8);
 
@@ -96,7 +96,7 @@ static Node noEdgesNode{};
 
 
 
-auto Node::nextRightwardTodoEdge(Angle prevAngle) noexcept -> EdgeRef
+auto Node::nextRightwardTodoEdge(Angle prevAngle) noexcept -> edge_ptr
 {
   assert(prevAngle.degrees() >= 0 && prevAngle.degrees() < 360);
 
@@ -104,7 +104,7 @@ auto Node::nextRightwardTodoEdge(Angle prevAngle) noexcept -> EdgeRef
   int idx  = idx0;
 
   while ((idx = (idx + 1) & 7) != idx0)
-    if (mEdges[idx] && !(mDone & (1u << idx)))
+    if (mEdges[idx].exists() && !(mDone & (1u << idx)))
       return edge(idx);
 
   assert(!noEdgesNode.edge(0));
@@ -113,22 +113,22 @@ auto Node::nextRightwardTodoEdge(Angle prevAngle) noexcept -> EdgeRef
 
 
 
-auto Node::reverseEdge(const ConstEdgeRef& edge) noexcept -> EdgeRef
-{ return EdgeRef{this, reverseEdgeIndex(edge.index())}; }
+auto Node::reverseEdge(const_edge_ptr edge) noexcept -> edge_ptr
+{ return edge_ptr{this, reverseEdgeIndex(edge->index())}; }
 
 
 
-auto Node::continueLine(const ConstEdgeRef& edge) noexcept -> EdgeRef // FIXME: Consider continuing the line also if it's not straight!
+auto Node::continueLine(const_edge_ptr edge) noexcept -> edge_ptr // FIXME: Consider continuing the line also if it's not straight!
 {
   switch (mForm)
   {
-    case Straight: return EdgeRef{this, edge.index()};
+    case Straight: return edge_ptr{this, edge->index()};
 
     case Bezier: {
-      int rev = reverseEdgeIndex(edge.index());
+      int rev = reverseEdgeIndex(edge->index());
       for (int idx = 0; idx < 8; ++idx)
-        if (idx != edge.index() && idx != rev && mEdges[idx])
-          return EdgeRef{this, idx};
+        if (idx != edge->index() && idx != rev && mEdges[idx].exists())
+          return edge_ptr{this, idx};
       break;
     }
   }
@@ -200,13 +200,13 @@ Node& Graph::lineTo(int dx, int dy, Edge::Style style)
 
   while (x != xe || y != ye)
   {
-    mCurNode->edge(edge).setStyle(style);
+    mCurNode->edge(edge)->setStyle(style);
 
     x += dx;
     y += dy;
 
     moveTo(x, y);
-    mCurNode->edge(reve).setStyle(style);
+    mCurNode->edge(reve)->setStyle(style);
   }
 
   return *mCurNode;
