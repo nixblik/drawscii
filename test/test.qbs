@@ -50,6 +50,7 @@ QtApplication {
           "input/intertwined.txt",
           "input/letters.txt",
           "input/linked_shapes.txt",
+          "input/parallelogram.txt",
           "input/rect_intersect.txt",
           "input/rect_parallel.txt",
           "input/square_shade.txt",

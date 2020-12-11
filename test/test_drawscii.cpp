@@ -52,6 +52,7 @@ void TestDrawscii::verifyImageOutput_data()
   QTest::newRow("intertwined.png")     << "intertwined"     << "png" << "";
   QTest::newRow("letters.png")         << "letters"         << "png" << "--background transparent";
   QTest::newRow("linked_shapes.png")   << "linked_shapes"   << "png" << "";
+  QTest::newRow("parallelogram.png")   << "parallelogram"   << "png" << "--background darkgray";
   QTest::newRow("rect_intersect.svg")  << "rect_intersect"  << "svg" << "--shadows";
   QTest::newRow("rect_parallel.png")   << "rect_parallel"   << "png" << "";
   QTest::newRow("square_shade.png")    << "square_shade"    << "png" << "";

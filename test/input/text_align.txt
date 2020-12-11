@@ -1,4 +1,4 @@
-/--------------------------\ TOP
+.--------------------------.TOP
 | the                  the |
 | horizontal    horizontal |
 | alignment      alignment |
@@ -15,7 +15,6 @@
 |         is               |
 |       mostly             |
 |      a centered paragraph|
-\--------------------------/
-
-LEFT
-.
+'--------------------------'
+LEFT                   RIGHT
+END                      END

@@ -92,9 +92,9 @@ inline GraphConstructor::GraphConstructor(TextImage& text, Graph& graph) noexcep
 /// their characters as "drawing", and creates the lines in the corner. These
 /// kind of structures are recognized:
 ///
-///                 |
-///     .-    .-   -)-
-///     |    /      |
+///                                |
+///     .-    .-   .-   .-   /-   /-   -)-
+///     |    /     \    '-   |    \-    |
 ///
 /// This step is needed for the second pass where adjacent characters might
 /// otherwise not be recognized as edges.
@@ -144,20 +144,37 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, Node::Form for
 {
   if (mText(x+dx, y) == OneOf{L"-=+"})
   {
-    if (mText(x, y+dy) == OneOf{L"|!:+"})
+    auto ch2 = mText(x, y+dy);
+    if ((ch2 == OneOf{L"|!:+"}) ||
+        (ch2 == (dx*dy < 0 ? '/' : '\\') && form == Node::Straight) ||
+        (ch2 == (dx*dy < 0 ? '.' : '\'') && form == Node::Bezier))
     {
       mText.category(x, y)    = Category::Drawing;
       mText.category(x+dx, y) = Category::Drawing;
       mText.category(x, y+dy) = Category::Drawing;
 
       mGraph.moveTo(2*x, 2*y+dy);
-      if (form != Node::Straight)
+      switch (form)
       {
-        mGraph.lineTo(+0, -dy, Edge::Weak).setForm(form);
-        mGraph.lineTo(+dx, +0, Edge::Weak);
+        case Node::Straight:
+          mGraph.lineTo(+dx, -dy, Edge::Weak);
+          break;
+
+        case Node::Bezier:
+          mGraph.lineTo(+0, -dy, Edge::Weak).setForm(form);
+          mGraph.lineTo(+dx, +0, Edge::Weak);
+          break;
       }
-      else
-        mGraph.lineTo(+dx, -dy, Edge::Weak);
+    }
+    else if (ch2 == (dx*dy < 0 ? '/' : '\\') && form == Node::Bezier)
+    {
+      mText.category(x, y)    = Category::Drawing;
+      mText.category(x+dx, y) = Category::Drawing;
+      mText.category(x, y+dy) = Category::Drawing;
+
+      mGraph.moveTo(2*x-dx, 2*y+dy);
+      mGraph.lineTo(-dx, -dy, Edge::Weak).setForm(form);
+      mGraph.lineTo(+3*dx, +0, Edge::Weak);
     }
 
     if (form == Node::Bezier && mText(x-dx,y+dy) == (dx*dy > 0 ? '/' : '\\'))

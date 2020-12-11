@@ -35,6 +35,7 @@ $DRAWSCII -o $OUTPUT/hell.svg            $INPUT/hell.txt            --font-size 
 $DRAWSCII -o $OUTPUT/intertwined.png     $INPUT/intertwined.txt
 $DRAWSCII -o $OUTPUT/letters.png         $INPUT/letters.txt         --background transparent
 $DRAWSCII -o $OUTPUT/linked_shapes.png   $INPUT/linked_shapes.txt
+$DRAWSCII -o $OUTPUT/parallelogram.png   $INPUT/parallelogram.txt   --background darkgray
 $DRAWSCII -o $OUTPUT/rect_intersect.svg  $INPUT/rect_intersect.txt  --shadows
 $DRAWSCII -o $OUTPUT/rect_parallel.png   $INPUT/rect_parallel.txt
 $DRAWSCII -o $OUTPUT/square_shade.png    $INPUT/square_shade.txt

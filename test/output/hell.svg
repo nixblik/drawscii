@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg viewBox="0 0 130 86"
+<svg viewBox="0 0 151 79"
  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"  version="1.2" baseProfile="tiny">
 <title>Qt SVG Document</title>
 <desc>Generated with Qt</desc>
@@ -7,23 +7,25 @@
 </defs>
 <g fill="none" stroke="black" stroke-width="1" fill-rule="evenodd" stroke-linecap="square" stroke-linejoin="bevel" >
 
-<g fill="#ffffff" fill-opacity="1" stroke="#ffffff" stroke-opacity="1" stroke-width="1" stroke-linecap="square" stroke-linejoin="bevel" transform="matrix(1,0,0,1,0.5,0.5)"
+<g fill="#ffffff" fill-opacity="1" stroke="#ffffff" stroke-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="2" transform="matrix(1,0,0,1,11.5,11.5)"
 font-family="Open Sans" font-size="20" font-weight="400" font-style="normal" 
 >
-<path vector-effect="none" fill-rule="evenodd" d="M8,14 L105,14 L106.697,14.105 L108.35,14.4111 L109.946,14.9052 L111.472,15.5743 L112.915,16.4052 L114.262,17.3848 L115.5,18.5 L116.615,19.7376 L117.595,21.0845 L118.426,22.5277 L119.095,24.0539 L119.589,25.6501 L119.895,27.3032 L120,29 L120,70 L23,70 L21.3032,69.895 L19.6501,69.5889 L18.0539,69.0948 L16.5277,68.4257 L15.0845,67.5948 L13.7376,66.6152 L12.5,65.5 L11.3848,64.2624 L10.4052,62.9155 L9.57434,61.4723 L8.90525,59.9461 L8.41108,58.3499 L8.10496,56.6968 L8,55 L8,14"/>
+<path vector-effect="none" fill-rule="evenodd" d="M128,14 L128,56 L8,56 L7.33333,56 C3.28324,56 0,52.7168 0,48.6667 L0,42 L0,0 L120,0 L120.667,0 C124.717,0 128,3.28324 128,7.33333 L128,14"/>
 </g>
 
-<g fill="none" stroke="#000000" stroke-opacity="1" stroke-dasharray="5,3" stroke-dashoffset="0" stroke-width="1" stroke-linecap="square" stroke-linejoin="bevel" transform="matrix(1,0,0,1,0.5,0.5)"
+<g fill="none" stroke="#000000" stroke-opacity="1" stroke-dasharray="5,3" stroke-dashoffset="0" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="2" transform="matrix(1,0,0,1,11.5,11.5)"
 font-family="Open Sans" font-size="20" font-weight="400" font-style="normal" 
 >
-<path vector-effect="none" fill-rule="evenodd" d="M8,14 L105,14 C113,14 120,21 120,29 L120,70"/>
-<path vector-effect="none" fill-rule="evenodd" d="M8,14 L8,55 C8,63 15,70 23,70 L120,70"/>
+<path vector-effect="none" fill-rule="evenodd" d="M0,42 L0,48.6667 C0,52.7168 3.28324,56 7.33333,56 L8,56 L128,56"/>
+<path vector-effect="none" fill-rule="evenodd" d="M0,42 L0,0"/>
+<path vector-effect="none" fill-rule="evenodd" d="M128,14 L128,56"/>
+<path vector-effect="none" fill-rule="evenodd" d="M128,14 L128,7.33333 C128,3.28324 124.717,0 120.667,0 L120,0 L0,0"/>
 </g>
 
-<g fill="none" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="square" stroke-linejoin="bevel" transform="matrix(1,0,0,1,0.5,0.5)"
+<g fill="none" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="square" stroke-linejoin="bevel" transform="matrix(1,0,0,1,11.5,11.5)"
 font-family="Open Sans" font-size="20" font-weight="400" font-style="normal" 
 >
-<text fill="#000000" fill-opacity="1" stroke="none" xml:space="preserve" x="40.1875" y="50" font-family="Open Sans" font-size="20" font-weight="400" font-style="normal" 
+<text fill="#000000" fill-opacity="1" stroke="none" xml:space="preserve" x="32.6875" y="36" font-family="Open Sans" font-size="20" font-weight="400" font-style="normal" 
  >HELL</text>
 </g>
 </g>
