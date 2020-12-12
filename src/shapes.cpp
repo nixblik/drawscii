@@ -73,6 +73,7 @@ class ShapeFinder
     void findClosedShapeAt(Node::edge_ptr edge0);
     void addClosedShape(ShapePoints::const_iterator begin, ShapePoints::const_iterator end, Angle angle, int dashCt);
     void findLines();
+    void findLinesAt(Node* node);
     void findLineAt(Node::edge_ptr edge0);
 
     Graph& mGraph;
@@ -215,18 +216,70 @@ void ShapeFinder::addClosedShape(ShapePoints::const_iterator begin, ShapePoints:
 
 
 
+/// Assembles a list of all lines to be drawn. The function follows rounded
+/// corners, but stops at others. Best visual results are obtained, in
+/// particular for dashed lines, if drawing does not start in the midst of a
+/// straight line whenever possible. The function therefore first searches the
+/// graph for good points to start drawing at:
+///
+/// 1) Line endings
+/// 2) Angled corners
+/// 3) Crossings of at least 3 lines
+///
+/// Starting from these points (in the order given above), the function then
+/// searches the graph edges to obtain a list of lines to be drawn.
+///
 void ShapeFinder::findLines()
 {
+  std::vector<Node*> endings;
+  std::vector<Node*> corners;
+  std::vector<Node*> crossings;
+
+  endings.reserve(32);
+  corners.reserve(64);
+  crossings.reserve(32);
+
   for (auto& node: mGraph)
   {
-    if (node.edgesAllDone() || node.form() != Node::Straight)
-      continue;
+    int ct = 0;
+    int is = 0;
 
     for (int i = 0, endi = node.numberOfEdges(); i < endi; ++i)
-      if (auto edge = node.edge(i))
-        if (!edge->done())
-          findLineAt(edge);
+      if (node.edge(i)->exists())
+        is += i * (1 - 2 * ct++);
+
+    if (ct == 1)
+      endings.push_back(&node);
+    else if (ct >= 3 && node.form() != Node::Bezier)
+      crossings.push_back(&node);
+    else if (ct == 2 && is != -4 && node.form() != Node::Bezier)
+      corners.push_back(&node);
   }
+
+  for (auto node: endings)
+    findLinesAt(node);
+
+  for (auto node: corners)
+    findLinesAt(node);
+
+  for (auto node: crossings)
+    findLinesAt(node);
+
+  for (auto& node: mGraph)
+    findLinesAt(&node);
+}
+
+
+
+inline void ShapeFinder::findLinesAt(Node* node)
+{
+  if (node->edgesAllDone() || node->form() != Node::Straight)
+    return;
+
+  for (int i = 0, endi = node->numberOfEdges(); i < endi; ++i)
+    if (auto edge = node->edge(i))
+      if (!edge->done())
+        findLineAt(edge);
 }
 
 
@@ -257,7 +310,11 @@ void ShapeFinder::findLineAt(Node::edge_ptr edge0)
     if (style == Edge::Weak)
       style = nextStyle;
     else if (style != nextStyle && nextStyle != Edge::Weak)
+    {
+      // Recursively search for the line that begins right here in a different style
+      findLineAt(nextEdge);
       break;
+    }
 
     // Only curved corners have to be drawn, otherwise lines are straight
     if (curTarget->form() == Node::Bezier)
