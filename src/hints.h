@@ -16,29 +16,22 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "textpos.h"
-#include <list>
-#include <QColor>
-class TextImg;
-class Graph;
+#include "color.h"
+#include <forward_list>
+class TextImage;
 
 
 
 struct Hint
 {
-  Hint(int x, int y, const QColor& col) noexcept
-    : pos{x, y},
-      color{col}
-  {}
+  Hint(int nx, int ny, Color c) noexcept;
 
-  TextPos pos;
-  QColor color;
+  const int x;
+  const int y;
+  Color color;
 };
 
 
 
-class Hints : public std::list<Hint>
-{
-  public:
-    static Hints from(const TextImg& txt, Graph& graph);
-};
+using Hints = std::forward_list<Hint>;
+Hints findHints(TextImage& text);

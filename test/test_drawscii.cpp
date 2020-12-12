@@ -45,12 +45,14 @@ void TestDrawscii::verifyImageOutput_data()
   QTest::newRow("corner.png")          << "corner"          << "png" << "";
   QTest::newRow("cornered_line.png")   << "cornered_line"   << "png" << "";
   QTest::newRow("cross.png")           << "cross"           << "png" << "--line-width 5";
+  QTest::newRow("dashed_lines.svg")    << "dashed_lines"    << "svg" << "";
   QTest::newRow("diag_tree.bmp")       << "diag_tree"       << "bmp" << "";
   QTest::newRow("hell.png")            << "hell"            << "png" << "--font-size 20";
   QTest::newRow("hell.svg")            << "hell"            << "svg" << "--font-size 20";
   QTest::newRow("intertwined.png")     << "intertwined"     << "png" << "";
   QTest::newRow("letters.png")         << "letters"         << "png" << "--background transparent";
   QTest::newRow("linked_shapes.png")   << "linked_shapes"   << "png" << "";
+  QTest::newRow("parallelogram.png")   << "parallelogram"   << "png" << "--background darkgray";
   QTest::newRow("rect_intersect.svg")  << "rect_intersect"  << "svg" << "--shadows";
   QTest::newRow("rect_parallel.png")   << "rect_parallel"   << "png" << "";
   QTest::newRow("square_shade.png")    << "square_shade"    << "png" << "";
@@ -158,7 +160,8 @@ void TestDrawscii::checkImagesEqual(const QString& output, const QString& truth)
   }
 
   auto delta = static_cast<double>(diff) / (outputImg.width() * outputImg.height());
-  QVERIFY(delta < 4);
+  if (delta > 4)
+    QFAIL(qPrintable("images are not identical: TSS/N = " + QString::number(delta)));
 
   if (delta > 0.1)
     QWARN(qPrintable("images are not identical: TSS/N = " + QString::number(delta)));

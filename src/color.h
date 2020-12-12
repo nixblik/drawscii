@@ -15,16 +15,10 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "direction.h"
+#pragma once
+#include "common.h"
+#include <QColor>
 
 
 
-int angle(Direction d1, Direction d2) noexcept
-{
-  auto dir = opposite(d1);
-  for (int angle = -180; angle < 180; dir = turnedLeft45(dir), angle += 45)
-    if (dir == d2)
-      return angle;
-
-  Q_UNREACHABLE(); // GCOV_EXCL_LINE
-}                  // GCOV_EXCL_LINE
+using Color = QColor;

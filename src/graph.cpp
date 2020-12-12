@@ -1,273 +1,310 @@
-/*  Copyright 2020 Uwe Salomon <post@uwesalomon.de>
-
-    This file is part of Drawscii.
-
-    Drawscii is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    Drawscii is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
-*/
 #include "graph.h"
-#include "textimg.h"
+#include <cstdlib>
+#include <limits>
+#include <stdexcept>
 
 
 
-inline Node& Node::set(NodeKind kind) noexcept
-{ mKind = kind; return *this; }
-
-inline Node& Node::addEdge(Direction dir) noexcept
-{ mEdges |= dir; return *this; }
-
-inline Node& Node::addEdges(Directions dir) noexcept
-{ mEdges |= dir; return *this; }
-
-inline void Node::setDashed() noexcept
-{ mDashed = true; }
-
-
-
-Graph Graph::from(const TextImg& txt)
+Angle Angle::relativeTo(Angle other) const noexcept
 {
-  Graph gr{txt.width(), txt.height()};
-  gr.readFrom(txt);
-  return gr;
+  auto diff = mDegrees - other.mDegrees;
+  if (diff > 180)
+    return Angle{diff - 360};
+
+  if (diff <= -180)
+    return Angle{diff + 360};
+
+  return Angle{diff};
 }
 
 
 
-inline Graph::Graph(int width, int height)
-  : Matrix{width, height}
+constexpr Node::Node() noexcept
+  : mEdges{},
+    mX{-32768}, // Sentinel for cuckoo hash
+    mY{-32768},
+    mMark{NoMark},
+    mForm{Straight},
+    mDone{0xFF},
+    mDone0{0xFF}
 {}
 
 
-inline Node& Graph::node(int x, int y) noexcept
-{ return operator()(x, y); }
 
-
-inline Node& Graph::node(TextPos pos) noexcept
-{ return operator[](pos); }
-
-
-
-inline void Graph::readFrom(const TextImg& txt)
+inline Node::Node(int x, int y)
+  : mEdges{},
+    mX{static_cast<int16_t>(x)},
+    mY{static_cast<int16_t>(y)},
+    mMark{NoMark},
+    mForm{Straight},
+    mDone{0xFF},
+    mDone0{0xFF}
 {
-  pass1(txt);
-  pass2(txt);
-  pass3(txt);
+  if (x > std::numeric_limits<int16_t>::max() || y > std::numeric_limits<int16_t>::max())
+    throw std::runtime_error{"drawing is too large"};
 }
 
 
 
-// First pass of graph construction from txt. It detects the basic drawing
-// elements (corners, edges and arrows) if they include horizontal or vertical
-// dash characters.
-//
-void Graph::pass1(const TextImg& txt)
+void Node::EdgeRef::setStyle(Node::EdgeRef::Style style) noexcept
 {
-  for (int y = 0; y < height(); ++y)
+  assert(style != Edge::None);
+  mNode->mEdges[mIndex].setStyle(style);
+
+  auto clrBit    = ~(1u << mIndex);
+  mNode->mDone  &= clrBit;
+  mNode->mDone0 &= clrBit;
+}
+
+
+
+Point Node::EdgeRef::target() const noexcept
+{
+  auto p = mNode->point();
+  return Point{p.x + dx(), p.y + dy()};
+}
+
+
+
+int Node::EdgeRef::dx() const noexcept
+{
+  assert(mIndex >= 0 && mIndex < 8);
+
+  constexpr static int dxs[] = { +1, +1, 0, -1, -1, -1, 0, +1 };
+  return dxs[mIndex];
+}
+
+
+
+int Node::EdgeRef::dy() const noexcept
+{
+  assert(mIndex >= 0 && mIndex < 8);
+
+  constexpr static int dys[] = { 0, -1, -1, -1, 0, +1, +1, +1 };
+  return dys[mIndex];
+}
+
+
+
+namespace {
+
+inline int edgeIndexFromDxDy(int dx, int dy)
+{
+  assert(dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 && (dx || dy));
+
+  constexpr static int edges[] = { 3, 2, 1, 4, -1, 0, 5, 6, 7 };
+  return edges[4+dx+dy*3];
+}
+
+
+
+inline int reverseEdgeIndex(int idx)
+{
+  assert(idx >= 0);
+  return (idx + 4) & 7;
+}
+
+
+static Node noEdgesNode{};
+} // namespace
+
+
+
+auto Node::nextRightwardTodoEdge(Angle prevAngle) noexcept -> edge_ptr
+{
+  assert(prevAngle.degrees() >= 0 && prevAngle.degrees() < 360);
+
+  int idx0 = reverseEdgeIndex(prevAngle.degrees() / 45);
+  int idx  = idx0;
+
+  while ((idx = (idx + 1) & 7) != idx0)
+    if (mEdges[idx].exists() && !(mDone & (1u << idx)))
+      return edge(idx);
+
+  assert(!noEdgesNode.edge(0));
+  return noEdgesNode.edge(0);
+}
+
+
+
+auto Node::reverseEdge(const_edge_ptr edge) noexcept -> edge_ptr
+{ return edge_ptr{this, reverseEdgeIndex(edge->index())}; }
+
+
+
+auto Node::continueLine(const_edge_ptr edge) noexcept -> edge_ptr
+{
+  switch (mForm)
   {
-    for (int x = 0; x < width(); ++x)
-    {
-      switch (txt(x,y).toLatin1())
-      {
-        case '+':
-          if (txt(x+1,y).isOneOf("-=")) makeEdge(x, y, Line, Right, Line);
-          if (txt(x,y+1).isOneOf("|:")) makeEdge(x, y, Line, Down, Line);
-          break;
+    case Straight: return edge_ptr{this, edge->index()};
 
-        case '-':
-        case '=':
-          if (txt(x+1,y).isOneOf("-=+")) makeEdge(x, y, Line, Right, Line);
-          if (txt(x+1,y).isOneOf("><"))  makeEdge(x, y, Line, Right, Arrow);
-          break;
-
-        case '|':
-        case ':':
-          if (txt(x,y+1).isOneOf("|:+")) makeEdge(x, y, Line, Down, Line);
-          if (txt(x,y+1).isOneOf("^vV") && !txt.isPartOfWord(x,y+1)) makeEdge(x, y, Line, Down, Arrow);
-          break;
-
-        case '<':
-        case '>':
-          if (txt(x+1,y).isOneOf("-=")) makeEdge(x, y, Arrow, Right, Line);
-          break;
-
-        case '^':
-        case 'v':
-        case 'V':
-          if (txt(x,y+1).isOneOf("|:") && !txt.isPartOfWord(x,y)) makeEdge(x, y, Arrow, Down, Line);
-          break;
-
-        case '/':
-          if (txt(x,y+1).isOneOf("|:+\\") && txt(x+1,y).isOneOf("-=+")) makeCorner(x, y, Round, Right, Line, Down, Line);
-          if (txt(x,y-1).isOneOf("|:+")   && txt(x-1,y).isOneOf("-=+")) makeCorner(x, y, Round, Left, Line, Up, Line);
-          if (txt(x,y-1) == '\\'          && txt(x-1,y).isOneOf("-=+")) makeCorner(x, y, Round, Left, Line, Up, Round);
-          if (txt(x-1,y+1) == '/')                                      makeEdge(x, y, Line, DownLeft, Line);
-          break;
-
-        case '\\':
-          if (txt(x,y+1).isOneOf("|:+/") && txt(x-1,y).isOneOf("-=+")) makeCorner(x, y, Round, Left, Line, Down, Line);
-          if (txt(x,y-1).isOneOf("|:+")  && txt(x+1,y).isOneOf("-=+")) makeCorner(x, y, Round, Right, Line, Up, Line);
-          if (txt(x,y-1) == '/'          && txt(x+1,y).isOneOf("-=+")) makeCorner(x, y, Round, Right, Line, Up, Round);
-          if (txt(x+1,y+1) == '\\')                                    makeEdge(x, y, Line, DownRight, Line);
-          break;
-      }
+    case Bezier: {
+      int rev = reverseEdgeIndex(edge->index());
+      for (int idx = 0; idx < 8; ++idx)
+        if (idx != edge->index() && idx != rev && mEdges[idx].exists())
+          return edge_ptr{this, idx};
+      break;
     }
   }
+
+  assert(false);
 }
 
 
 
-inline void Graph::makeEdge(int x, int y, NodeKind from, Direction dir, NodeKind to)
+Graph::Graph() noexcept
+  : mCurNode{nullptr},
+    mSize{0},
+    mCapacity{0},
+    mLeft{0},
+    mRight{0},
+    mTop{0},
+    mBottom{0}
+{}
+
+
+
+namespace {
+
+// FNV-1a hash of two 16-bit integers
+template<typename Int>
+inline uint hash(Int x, Int y) noexcept
 {
-  node(x, y).set(from).addEdge(dir);
-  node(x + deltaX(dir), y + deltaY(dir)).set(to).addEdge(opposite(dir));
+  uint32_t h = 2166136261u;
+
+  auto x2 = static_cast<uint>(x);
+  h       = (h ^ (x2 & 0xFFu)) * 16777619u;
+  x2    >>= 8;
+  h       = (h ^ (x2 & 0xFFu)) * 16777619u;
+
+  auto y2 = static_cast<uint>(y);
+  h       = (h ^ (y2 & 0xFFu)) * 16777619u;
+  y2    >>= 8;
+  h       = (h ^ (x2 & 0xFFu)) * 16777619u;
+
+  return h;
 }
+} // namespace
 
 
 
-inline void Graph::makeCorner(int x, int y, NodeKind from, Direction dir1, NodeKind to1, Direction dir2, NodeKind to2)
+inline uint Node::hash() const noexcept
+{ return ::hash(mX, mY); }
+
+
+
+void Graph::reserve(uint capacity)
 {
-  node(x, y).set(from).addEdges(dir1|dir2);
-  node(x + deltaX(dir1), y + deltaY(dir1)).set(to1).addEdge(opposite(dir1));
-  node(x + deltaX(dir2), y + deltaY(dir2)).set(to2).addEdge(opposite(dir2));
-}
+  auto newCapa = std::max(mCapacity, 256u);
+  while (newCapa < capacity)
+    newCapa *= 2;
 
+  if (newCapa <= mCapacity)
+    return;
 
+  auto newTable = std::make_unique<Node[]>(newCapa+1);
+  new(&newTable[newCapa]) Node{0, 0}; // Valid node at the end stops iteration
 
-// Second pass of graph construction from txt. Recursively makes adjacent
-// corner characters lines if at least one of them is a line already.
-//
-void Graph::pass2(const TextImg& txt)
-{
-  for (int y = 0; y < height(); ++y)
-    for (int x = 0; x < width(); ++x)
-      if (txt(x,y) == '+' && node(x,y).isLine())
-        findMoreCorners(txt, x, y);
-}
-
-
-
-void Graph::findMoreCorners(const TextImg& txt, int x, int y)
-{
-  if (txt(x-1,y) == '+')
+  if (mTable)
   {
-    node(x,y).set(Line).addEdge(Left);
-    if (node(x-1,y).kind() == Text)
-      findMoreCorners(txt, x-1, y);
-  }
-
-  if (txt(x+1,y) == '+')
-  {
-    node(x,y).set(Line).addEdge(Right);
-    if (node(x+1,y).kind() == Text)
-      findMoreCorners(txt, x+1, y);
-  }
-
-  if (txt(x,y-1) == '+')
-  {
-    node(x,y).set(Line).addEdge(Up);
-    if (node(x,y-1).kind() == Text)
-      findMoreCorners(txt, x, y-1);
-  }
-
-  if (txt(x,y+1) == '+')
-  {
-    node(x,y).set(Line).addEdge(Down);
-    if (node(x,y+1).kind() == Text)
-      findMoreCorners(txt, x, y+1);
-  }
-}
-
-
-
-// Third pass of graph construction from txt. Determines line dashing.
-//
-void Graph::pass3(const TextImg& txt)
-{
-  for (int y = 0; y < height(); ++y)
-  {
-    for (int x = 0; x < width(); ++x)
+    auto cap = newCapa - 1;
+    for (Node& node: *this)
     {
-      auto nd = node(x, y);
-      if (!nd.isLine())
-        continue;
+      Node* pos;
+      for (auto h = node.hash(); !(pos = &newTable[h&cap])->isSentinel(); ++h)
+      {}
 
-      switch (txt(x,y).toLatin1())
-      {
-        case '=': if (!nd.isDashed()) spreadDashing(txt, x, y, Left); break;
-        case ':': if (!nd.isDashed()) spreadDashing(txt, x, y, Up); break;
-      }
+      new(pos) Node{std::move(node)};
     }
   }
+
+  mTable    = std::move(newTable);
+  mCapacity = newCapa;
 }
 
 
 
-void Graph::spreadDashing(const TextImg& txt, int x0, int y0, Direction dir0)
+Node& Graph::operator[](Point p)
 {
-  auto& nd0 = node(x0, y0);
-  nd0.setDashed();
+  auto  cap = mCapacity - 1;
+  Node* pos;
 
-  for (int i = 0; i < 2; ++i, dir0 = opposite(dir0))
+  for (auto h = hash(p.x, p.y); !(pos = &mTable[h&cap])->isSentinel(); ++h)
+    if (pos->point() == p)
+      return *pos;
+
+  throw std::invalid_argument{"invalid graph node accessed"};
+}
+
+
+
+Node& Graph::moveTo(int x, int y)
+{
+  for (;;)
   {
-    Direction dir = dir0;
-    if (!nd0.hasEdge(dir))
+    auto  cap = mCapacity - 1;
+    Node* pos;
+
+    for (auto h = hash(x, y); !(pos = &mTable[h&cap])->isSentinel(); ++h)
+      if (pos->x() == x && pos->y() == y)
+        return *(mCurNode = pos);
+
+    if (++mSize * 2 >= mCapacity)
+    {
+      reserve(mCapacity * 4);
       continue;
-
-    TextPos pos{x0, y0};
-    for (;;)
-    {
-      pos     += dir;
-      auto& nd = node(pos);
-      if (nd.isDashed())
-        break;
-
-      nd.setDashed();
-      if (nd.kind() == Round)
-        dir = walkCorner(dir, pos, txt[pos]);
-      else if (nd.kind() == Arrow)
-        break;
-
-      if (!nd.hasEdge(dir))
-        break;
     }
+
+    mCurNode = new(pos) Node{x, y};
+    mLeft    = std::min(mLeft, x);
+    mRight   = std::max(mRight, x);
+    mTop     = std::min(mTop, y);
+    mBottom  = std::max(mBottom, y);
+    return *mCurNode;
   }
 }
 
 
 
-Direction Graph::walkCorner(Direction dir, TextPos pos, QChar cornerCh) const noexcept
+namespace {
+int signum(int x) noexcept
+{ return x < 0 ? -1 : (x > 0); }
+} // namespace
+
+
+
+Node& Graph::lineTo(int dx, int dy, Edge::Style style)
 {
-  Q_UNUSED(pos); // Needed later when corners can lead to inclined lines
+  assert(dx == 0 || dy == 0 || abs(dx) == abs(dy));
+  assert(mCurNode);
 
-  bool horzDir = bool{(Left|Right) & dir};
-  bool vertDir = bool{(Up|Down) & dir};
+  int x    = mCurNode->x();
+  int y    = mCurNode->y();
+  int xe   = x + dx;
+  int ye   = y + dy;
+  dx       = signum(dx);
+  dy       = signum(dy);
+  int edge = edgeIndexFromDxDy(dx, dy);
+  int reve = reverseEdgeIndex(edge);
 
-  if ((horzDir && cornerCh == '/') || (vertDir && cornerCh == '\\'))
-    return turnedLeft90(dir);
+  while (x != xe || y != ye)
+  {
+    mCurNode->edge(edge)->setStyle(style);
 
-  if ((horzDir && cornerCh == '\\') || (vertDir && cornerCh == '/'))
-    return turnedRight90(dir);
+    x += dx;
+    y += dy;
 
-  Q_UNREACHABLE(); // GCOV_EXCL_LINE
-}                  // GCOV_EXCL_LINE
+    moveTo(x, y);
+    mCurNode->edge(reve)->setStyle(style);
+  }
+
+  return *mCurNode;
+}
 
 
 
-void Graph::setEmpty(int x, int y, int len)
+void Graph::clearEdgesDone() noexcept
 {
-  assert(x >= 0 && x + len <= width() && y >= 0 && y < height());
-
-  auto p = &node(x, y);
-  for (auto pe = p + len; p != pe; ++p)
-    p->set(Empty);
+  for (auto& node : *this)
+    node.clearEdgesDone();
 }

@@ -28,12 +28,14 @@ $DRAWSCII -o $OUTPUT/color_more.png      $INPUT/color_more.txt      --no-shadows
 $DRAWSCII -o $OUTPUT/corner.png          $INPUT/corner.txt
 $DRAWSCII -o $OUTPUT/cornered_line.png   $INPUT/cornered_line.txt
 $DRAWSCII -o $OUTPUT/cross.png           $INPUT/cross.txt           --line-width 5
+$DRAWSCII -o $OUTPUT/dashed_lines.svg    $INPUT/dashed_lines.txt
 $DRAWSCII -o $OUTPUT/diag_tree.bmp       $INPUT/diag_tree.txt
 $DRAWSCII -o $OUTPUT/hell.png            $INPUT/hell.txt            --font-size 20
 $DRAWSCII -o $OUTPUT/hell.svg            $INPUT/hell.txt            --font-size 20
 $DRAWSCII -o $OUTPUT/intertwined.png     $INPUT/intertwined.txt
 $DRAWSCII -o $OUTPUT/letters.png         $INPUT/letters.txt         --background transparent
 $DRAWSCII -o $OUTPUT/linked_shapes.png   $INPUT/linked_shapes.txt
+$DRAWSCII -o $OUTPUT/parallelogram.png   $INPUT/parallelogram.txt   --background darkgray
 $DRAWSCII -o $OUTPUT/rect_intersect.svg  $INPUT/rect_intersect.txt  --shadows
 $DRAWSCII -o $OUTPUT/rect_parallel.png   $INPUT/rect_parallel.txt
 $DRAWSCII -o $OUTPUT/square_shade.png    $INPUT/square_shade.txt

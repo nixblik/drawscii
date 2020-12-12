@@ -16,37 +16,12 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "direction.h"
+#include "graph.h"
+#include "textimage.h"
 
 
 
-/// An x, y position in the input text file. The coordinates can give the
-/// column and row of a character. On the contrary, QPoint is used in this
-/// program to denote pixel positions in the output image.
-///
-struct TextPos
-{
-  constexpr TextPos(int nx, int ny) noexcept
-    : x{nx},
-      y{ny}
-  {}
-
-  TextPos& operator+=(Direction dir) noexcept
-  {
-    x += deltaX(dir);
-    y += deltaY(dir);
-    return *this;
-  }
-
-  int x;
-  int y;
-};
-
-
-
-inline TextPos operator+(TextPos pt, Direction dir) noexcept
-{ return pt += dir; }
-
-
-inline bool operator==(const TextPos& p1, const TextPos& p2) noexcept
-{ return p1.x == p2.x && p1.y == p2.y; }
+/// Analyzes the \a text image and returns the Graph constructed from the
+/// drawings. All characters in \a text consumed for drawing are marked as
+/// being non-text, too.
+Graph constructGraph(TextImage& text);

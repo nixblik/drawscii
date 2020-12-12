@@ -17,14 +17,12 @@
 */
 #pragma once
 #include "graph.h"
-#include "matrix.h"
-#include <list>
-#include <vector>
+#include "hints.h"
+#include "shapes.h"
+#include "paragraphs.h"
+#include <forward_list>
 #include <QPainter>
-class Hints;
-class Paragraph;
-struct Shape;
-class TextImg;
+class TextImage;
 
 
 
@@ -36,67 +34,56 @@ enum class Shadow
 class Render
 {
   public:
-    Render(const Graph& graph, const TextImg& txt, const QFont& font, float lineWd);
+    Render(const TextImage& txt, const Graph& graph, const Shapes& shapes, const Hints& hints, const ParagraphList& paragraphs);
     ~Render();
 
     QSize size() const noexcept;
+    void setFont(const QFont& font);
+    void setLineWidth(float lineWd);
     void setShadows(Shadow mode);
     void setAntialias(bool enable);
-    void apply(const Hints& hints);
     void paint(QPaintDevice* dev);
 
   private:
-    struct ShapePt {
-      ShapePt(TextPos p, Direction d, int a) noexcept
-        : pos{p}, dir{d}, angle{a}
-      {}
-
-      TextPos pos;
-      Direction dir;
-      int angle;
-    };
-
-    using ShapePts      = std::vector<ShapePt>;
-    using ShapeList     = std::list<Shape>;
-    using ParagraphList = std::list<Paragraph>;
+    struct ShapePath;
+    using ShapePaths = std::forward_list<ShapePath>;
 
     void computeRenderParams();
-    QPoint toImage(TextPos pos) const noexcept;
-    QRect imageRect(const Paragraph& p) const noexcept;
-    void findShapes();
-    void findShapeAt(TextPos pos0, Direction dir0);
-    Direction findNextShapeDir(Node node, TextPos pos, Direction lastDir);
-    void registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle);
-    void findParagraphs();
-    void addLineToParagraphs(QString&& line, TextPos pos);
-    void drawShapes(const ShapeList& shapes, const QColor& defaultColor);
+    QPoint graphToImage(Point p) const noexcept;
+    QPoint textToImage(int x, int y) const noexcept;
+    QRect textToImage(const Paragraph& p) const noexcept;
+    ShapePaths shapePaths(const Shapes::List& shapes, int delta) const;
+    void applyHints(const QColor& defaultColor);
+    void drawShapes(const ShapePaths& shapes, const QColor& defaultColor);
     void drawLines();
-    void drawLineFrom(TextPos pos0, Direction dir);
-    void drawRoundCorner(Node node, TextPos pos);
-    void drawArrow(TextPos pos);
+    void drawMarks();
+    void drawRoundCorner(Node node, Point pos);
+    void drawArrow(Point pos);
     void drawParagraphs();
 
-    const TextImg& mTxt;
+    const TextImage& mTxt;
     const Graph& mGraph;
+    const Shapes& mShapes;
+    const Hints& mHints;
+    const ParagraphList& mParagraphs;
     QFont mFont;
     QPen mSolidPen;
+    QPen mDoubleOuterPen;
+    QPen mDoubleInnerPen;
     QPen mDashedPen;
     QBrush mBrush;
     QPainter mPainter;
-    ShapePts mShapePts;
-    Matrix<Directions> mDone;
-    QPolygonF mArrows[4];
-    ShapeList mShadows;
-    ShapeList mShapes;
-    ParagraphList mParagraphs;
-    ParagraphList mActives;
+    QPolygonF mMarks[7];
     Shadow mShadowMode;
     bool mAntialias;
 
-    int mScaleX;
-    int mScaleY;
-    int mDeltaX;
-    int mDeltaY;
-    int mRadius;
+    double mScaleX;
+    double mScaleY;
+    double mRadius;
     int mShadowDelta;
+    int mCircle;
+    QRect mBoundingBox;
+
+    ShapePaths mOuterShapes;
+    ShapePaths mInnerShapes;
 };

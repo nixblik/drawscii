@@ -15,14 +15,16 @@
     You should have received a copy of the GNU General Public License
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "graph.h"
+#include "graph_construction.h"
 #include "hints.h"
 #include "outputfile.h"
 #include "render.h"
 #include "runtimeerror.h"
-#include "textimg.h"
+#include "shapes.h"
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFile>
@@ -33,6 +35,7 @@
 #include <QPdfWriter>
 #include <QSvgGenerator>
 #include <QTextCodec>
+#include <QTextStream>
 
 
 
@@ -48,17 +51,35 @@ struct CmdLineArgs
   QColor bg{Qt::white};
   float lineWd{1};
   int shadows{0};
-  int tabWidth{8};
+  uint tabWidth{8};
   bool antialias{true};
   bool overwrite{true};
 };
 
 
 
-int parseIntArg(const QString& value, const char* error)
+int parseIntArg(const QString& value, int minimum, int maximum, const char* error)
 try
 {
-  return std::stoi(value.toUtf8().toStdString());
+  auto res = std::stoi(value.toUtf8().toStdString());
+  if (res < minimum || res > maximum)
+    throw std::out_of_range{"out of range"};
+
+  return res;
+}
+catch (const std::exception&)
+{ throw std::runtime_error{error}; }
+
+
+
+uint parseUintArg(const QString& value, uint minimum, uint maximum, const char* error)
+try
+{
+  auto res = std::stoul(value.toUtf8().toStdString());
+  if (res < minimum || res > maximum)
+    throw std::out_of_range{"out of range"};
+
+  return static_cast<uint>(res);
 }
 catch (const std::exception&)
 { throw std::runtime_error{error}; }
@@ -195,7 +216,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
         result.font.setFamily(parser.value(fontOpt));
 
       if (parser.isSet(fontSizeOpt))
-        result.font.setPixelSize(parseIntArg(parser.value(fontSizeOpt), "Invalid font size"));
+        result.font.setPixelSize(parseIntArg(parser.value(fontSizeOpt), 3, 128, "Invalid font size"));
 
       if (parser.isSet(lineWdOpt))
         result.lineWd = parseFloatArg(parser.value(lineWdOpt), "Invalid line width");
@@ -249,7 +270,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
       throw std::runtime_error{"Unknown encoding"};
 
   if (parser.isSet(tabsOpt))
-    result.tabWidth = parseIntArg(parser.value(tabsOpt), "Invalid tab width");
+    result.tabWidth = parseUintArg(parser.value(tabsOpt), 1, 16, "Invalid tab width");
 
   if (result.outputFile.isEmpty())
     throw std::runtime_error{"Missing output file"};
@@ -259,20 +280,86 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
 
 
 
-TextImg readTextImg(QString fname, QTextCodec* codec, int tabWidth)
+TextImage readTextImage(QString fname, QTextCodec* codec, uint tabWidth)
 {
-  QFile fd{fname};
-  if (!fd.open(QFile::ReadOnly))
-    throw RuntimeError{fname, ": ", fd.errorString()};
-
-  QTextStream in{&fd};
   if (codec)
-    in.setCodec(codec);
+  {
+    QFile fd{fname};
+    if (!fd.open(QFile::ReadOnly))
+      throw RuntimeError{fname + ": " + fd.errorString()};
 
-  TextImg txt;
-  txt.read(in, tabWidth);
+    QTextStream is{&fd};
+    is.setCodec(codec);
 
-  return txt;
+    std::wistringstream wis{is.readAll().toStdWString()};
+    return TextImage::read(wis, tabWidth);
+  }
+  else
+  {
+    std::wifstream wif{fname.toStdString()};
+    if (!wif.is_open())
+      throw std::system_error{errno, std::system_category(), fname.toStdString()};
+
+    return TextImage::read(wif, tabWidth);
+  }
+}
+
+
+
+void renderSvg(Render& render, const CmdLineArgs& args)
+{
+  OutputFile fd{args.outputFile};
+  QSvgGenerator svg;
+  svg.setOutputDevice(&fd);
+  svg.setViewBox(QRect{QPoint{0, 0}, render.size()});
+
+  render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
+  render.paint(&svg);
+  fd.done();
+}
+
+
+
+void renderPdf(Render& render, const CmdLineArgs& args)
+{
+  if (args.bg != Qt::white)
+    throw std::runtime_error{"PDF output format must not have background color"};
+
+  if (!args.antialias)
+    std::clog << "warning: Anti-alias cannot be disabled for PDF output" << std::endl;
+
+  OutputFile fd{args.outputFile};
+  QPdfWriter writer{&fd};
+  writer.setPageSize(QPageSize(render.size(), QPageSize::Point));
+  writer.setPageMargins(QMarginsF{});
+  writer.setResolution(72 /*dpi*/);
+
+  render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
+  render.paint(&writer);
+  fd.done();
+}
+
+
+
+void renderBitmap(Render& render, const QByteArray& suffix, const CmdLineArgs& args)
+{
+  bool transparency = (args.bg.alpha() != 255);
+  if (transparency && suffix != "png")
+    throw std::runtime_error{"Must use PNG output format for transparent background"};
+
+  QImage img{render.size(), (transparency ? QImage::Format_ARGB32_Premultiplied : QImage::Format_RGB32)};
+  img.fill(args.bg);
+
+  render.setShadows(args.shadows >= 0 ? Shadow::Blurred : Shadow::None);
+  render.setAntialias(args.antialias);
+  render.paint(&img);
+
+  OutputFile fd{args.outputFile};
+  QImageWriter writer{&fd, suffix};
+  if (!writer.write(img))
+    throw RuntimeError{fd.fileName(), ": ", writer.errorString()};
+
+  fd.done();
 }
 
 
@@ -286,14 +373,17 @@ try
   app.setApplicationName("drawscii");
   app.setApplicationVersion(VERSION);
 
-  auto mode  = (QFileInfo{argv[0]}.fileName() == "ditaa" ? Mode::Ditaa : Mode::Drawscii);
-  auto args  = processCmdLine(app, mode);
-  auto txt   = readTextImg(args.inputFile, args.codec, args.tabWidth);
-  auto graph = Graph::from(txt);
-  auto hints = Hints::from(txt, graph);
+  auto mode   = (QFileInfo{argv[0]}.fileName() == "ditaa" ? Mode::Ditaa : Mode::Drawscii);
+  auto args   = processCmdLine(app, mode);
+  auto text   = readTextImage(args.inputFile, args.codec, args.tabWidth);
+  auto graph  = constructGraph(text);
+  auto shapes = findShapes(graph);
+  auto hints  = findHints(text);
+  auto paras  = findParagraphs(text);
 
-  Render render{graph, txt, args.font, args.lineWd};
-  render.apply(hints);
+  Render render{text, graph, shapes, hints, paras};
+  render.setFont(args.font);
+  render.setLineWidth(args.lineWd);
 
   QFileInfo outputInfo{args.outputFile};
   if (!args.overwrite && outputInfo.exists())
@@ -307,54 +397,11 @@ try
 
   auto suffix = outputInfo.suffix().toLatin1();
   if (suffix == "svg")
-  {
-    OutputFile fd{args.outputFile};
-    QSvgGenerator svg;
-    svg.setOutputDevice(&fd);
-    svg.setViewBox(QRect{QPoint{0, 0}, render.size()});
-
-    render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
-    render.paint(&svg);
-    fd.done();
-  }
+    renderSvg(render, args);
   else if (suffix == "pdf")
-  {
-    if (args.bg != Qt::white)
-      throw std::runtime_error{"PDF output format must not have background color"};
-
-    if (!args.antialias)
-      std::clog << "warning: Anti-alias cannot be disabled for PDF output" << std::endl;
-
-    OutputFile fd{args.outputFile};
-    QPdfWriter writer{&fd};
-    writer.setPageSize(QPageSize(render.size(), QPageSize::Point));
-    writer.setPageMargins(QMarginsF{});
-    writer.setResolution(72 /*dpi*/);
-
-    render.setShadows(args.shadows > 0 ? Shadow::Simple : Shadow::None);
-    render.paint(&writer);
-    fd.done();
-  }
+    renderPdf(render, args);
   else if (QImageWriter::supportedImageFormats().contains(suffix))
-  {
-    bool transparency = (args.bg.alpha() != 255);
-    if (transparency && suffix != "png")
-      throw std::runtime_error{"Must use PNG output format for transparent background"};
-
-    QImage img{render.size(), (transparency ? QImage::Format_ARGB32_Premultiplied : QImage::Format_RGB32)};
-    img.fill(args.bg);
-
-    render.setShadows(args.shadows >= 0 ? Shadow::Blurred : Shadow::None);
-    render.setAntialias(args.antialias);
-    render.paint(&img);
-
-    OutputFile fd{args.outputFile};
-    QImageWriter writer{&fd, suffix};
-    if (!writer.write(img))
-      throw RuntimeError{fd.fileName(), ": ", writer.errorString()};
-
-    fd.done();
-  }
+    renderBitmap(render, suffix, args);
   else
     throw RuntimeError{args.outputFile, ": Unknown graphics format"};
 

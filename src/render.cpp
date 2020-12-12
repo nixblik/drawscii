@@ -17,50 +17,65 @@
 */
 #include "render.h"
 #include "blur.h"
-#include "graph.h"
-#include "hints.h"
-#include "paragraph.h"
-#include "textimg.h"
+#include "textimage.h"
+#include <cmath>
 #include <QImage>
 #include <QPainter>
 
 
 
-struct Shape
+struct Render::ShapePath
 {
-  explicit Shape(QPainterPath p)
-    : path{std::move(p)}
-  {}
+  ShapePath(const QPainterPath& p) noexcept;
 
   QPainterPath path;
-  QColor bg;
+  QColor color;
 };
 
 
 
-Render::Render(const Graph& graph, const TextImg& txt, const QFont& font, float lineWd)
+Render::ShapePath::ShapePath(const QPainterPath& p) noexcept
+  : path{p}
+{}
+
+
+
+Render::Render(const TextImage& txt, const Graph& graph, const Shapes& shapes, const Hints& hints, const ParagraphList& paragraphs)
   : mTxt{txt},
     mGraph{graph},
-    mFont{font},
-    mSolidPen{Qt::black, static_cast<qreal>(lineWd)},
-    mDashedPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine},
+    mShapes{shapes},
+    mHints{hints},
+    mParagraphs{paragraphs},
     mBrush{Qt::black},
-    mDone{graph.width(), graph.height()},
     mShadowMode{Shadow::None},
     mAntialias{true}
 {
-  mDashedPen.setDashPattern({5, 3});
-  mShapePts.reserve(64);
-
   computeRenderParams();
-  findShapes();
-  findParagraphs();
 }
 
 
 
 Render::~Render()
 = default;
+
+
+
+void Render::setFont(const QFont& font)
+{
+  mFont = font;
+  computeRenderParams();
+}
+
+
+
+void Render::setLineWidth(float lineWd)
+{
+  mSolidPen       = QPen{Qt::black, static_cast<qreal>(lineWd), Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin};
+  mDoubleOuterPen = QPen{Qt::black, static_cast<qreal>(lineWd * 3), Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin};
+  mDoubleInnerPen = QPen{Qt::white, static_cast<qreal>(lineWd), Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin};
+  mDashedPen      = QPen{Qt::black, static_cast<qreal>(lineWd), Qt::CustomDashLine, Qt::FlatCap, Qt::MiterJoin};
+  mDashedPen.setDashPattern({5, 3});
+}
 
 
 
@@ -76,275 +91,70 @@ void Render::setAntialias(bool enable)
 void Render::computeRenderParams()
 {
   QFontMetrics fm{mFont};
-  mScaleX = fm.width("w");
-  mScaleY = fm.height(); // TODO: Provide compression for x and y axis, but this depends on the font, so be careful
-  mDeltaX = qRound(mScaleX * 0.5);
-  mDeltaY = qRound(mScaleY * 0.5);
-  mRadius = qRound((mScaleX + mScaleY) * 0.33333);
+  mScaleX = 0.5 * fm.width("w");
+  mScaleY = 0.5 * fm.height();
+  mRadius = (mScaleX + mScaleY) * 0.333333;
+  mCircle = qRound((mScaleX + mScaleY) * 0.2);
   mShadowDelta = 2;
 
-  auto& arrow = mArrows[0];
-  arrow.clear();
-  arrow.append(QPoint{mDeltaX, 0});
-  arrow.append(QPoint{qRound(-0.5 * mDeltaX), qRound(-0.4 * mDeltaY)});
-  arrow.append(QPoint{qRound(-0.5 * mDeltaX), qRound( 0.4 * mDeltaY)});
+  // Determine size and position of the output
+  mBoundingBox = QRect{graphToImage({mGraph.left(), mGraph.top()}), graphToImage({mGraph.right(), mGraph.bottom()})};
+  for (auto& para: mParagraphs)
+    mBoundingBox = mBoundingBox.united(textToImage(para));
 
-  for (int i = 1; i < 4; ++i)
+  int ltExtend = qRound((mScaleX + mScaleY) * 0.5);
+  int rbExtend = ltExtend + (mShadowMode == Shadow::None ? 0 : mShadowDelta);
+  mBoundingBox.adjust(-ltExtend, -ltExtend, rbExtend, rbExtend);
+
+  // Predraw the arrow marks
+  auto& arrow = mMarks[Node::RightArrow];
+  arrow.clear();
+  arrow.append(QPoint{qRound(mScaleX), 0});
+  arrow.append(QPoint{qRound(-0.5 * mScaleX), qRound(-0.4 * mScaleY)});
+  arrow.append(QPoint{qRound(-0.5 * mScaleX), qRound( 0.4 * mScaleY)});
+
+  auto rotated = [](const QPolygonF& polygon, int angle)
   {
     QTransform t;
-    t.rotate(90*i);
-    mArrows[i] = t.map(arrow);
-  }
+    t.rotate(angle);
+    return t.map(polygon);
+  };
+
+  mMarks[Node::UpArrow]   = rotated(arrow, 270);
+  mMarks[Node::LeftArrow] = rotated(arrow, 180);
+  mMarks[Node::DownArrow] = rotated(arrow, 90);
 }
 
 
 
 QSize Render::size() const noexcept
-{ return QSize{mGraph.width() * mScaleX + mShadowDelta, mGraph.height() * mScaleY + mShadowDelta}; }
-
-
-inline QPoint Render::toImage(TextPos pos) const noexcept
-{ return QPoint{pos.x*mScaleX + mDeltaX, pos.y*mScaleY + mDeltaY}; }
-
-
-
-inline QRect Render::imageRect(const Paragraph& p) const noexcept
 {
-  auto pt = p.topLeft();
-  return QRect{pt.x*mScaleX, pt.y*mScaleY, p.width()*mScaleX, p.height()*mScaleY};
-}
-
-
-
-void Render::findShapes()
-{
-  mDone.clear();
-  for (int y = 0; y < mGraph.height(); ++y)
-  {
-    for (int x = 0; x < mGraph.width(); ++x)
-    {
-      auto node = mGraph(x,y);
-      if (node.kind() != Line)
-        continue;
-
-      if (node.edges() & ~mDone(x,y))
-        for (Direction dir = Left; dir != UpLeft; dir = turnedLeft45(dir))
-          if (node.edges() & ~mDone(x,y) & dir)
-            findShapeAt(TextPos{x, y}, dir);
-    }
-  }
-}
-
-
-
-void Render::findShapeAt(TextPos pos0, Direction dir0)
-{
-  mDone[pos0] |= dir0;
-  TextPos pos1 = pos0 + dir0;
-
-  if (mGraph[pos1].kind() == Arrow)
-    return;
-
-  mShapePts.clear();
-  mShapePts.emplace_back(pos0, Direction{}, 0);
-  mShapePts.emplace_back(pos1, dir0, 0);
-
-  while (mShapePts.size() > 1)
-  {
-    auto& cur  = mShapePts.back();
-    auto  node = mGraph[cur.pos];
-    auto  dir  = findNextShapeDir(node, cur.pos, cur.dir);
-
-    if (!dir)
-    {
-      mShapePts.pop_back();
-      continue;
-    }
-
-    // Check that new point is ok for shape
-    mDone[cur.pos] |= dir;
-    TextPos nextPos = cur.pos + dir;
-
-    if (mGraph[nextPos].kind() == Arrow)
-      continue;
-
-    // Check whether new point closes the shape
-    for (auto i = mShapePts.begin(); i != mShapePts.end(); ++i)
-    {
-      if (i->pos == nextPos)
-      {
-        registerShape(i, mShapePts.end(), cur.angle - i->angle);
-        mShapePts.erase(i + 1, mShapePts.end());
-        goto ContinueOuterLoop;
-      }
-    }
-
-    // Continue shape-finding at new point
-    mShapePts.emplace_back(nextPos, dir, cur.angle + angle(cur.dir, dir));
-  ContinueOuterLoop:;
-  }
-}
-
-
-
-Direction Render::findNextShapeDir(Node node, TextPos pos, Direction lastDir)
-{
-  if (node.kind() == Round)
-  {
-    auto dir = mGraph.walkCorner(lastDir, pos, mTxt[pos]);
-    if (node.edges() & ~mDone[pos] & dir)
-      return dir;
-  }
-  else if (node.kind() == Line)
-  {
-    auto rdir  = opposite(lastDir);
-    auto edges = node.edges() & ~mDone[pos];
-
-    for (auto dir = turnedLeft45(rdir); dir != rdir; dir = turnedLeft45(dir))
-      if (edges & dir)
-        return dir;
-  }
-  else
-    Q_UNREACHABLE(); // GCOV_EXCL_LINE
-
-  return Direction{};
-}
-
-
-
-void Render::registerShape(ShapePts::const_iterator begin, ShapePts::const_iterator end, int angle)
-{
-  QPainterPath path;
-  path.moveTo(toImage(begin->pos));
-  int dashCt = 0;
-
-  for (auto i = begin + 1; i != end; ++i)
-  {
-    auto node = mGraph[i->pos];
-    dashCt   += node.isDashed();
-
-    if (node.kind() == Round)
-    {
-      QPoint pt = toImage(i->pos);
-      QPoint r1 = QPoint{deltaX(i->dir), deltaY(i->dir)} * mRadius;
-      auto   d2 = mGraph.walkCorner(i->dir, i->pos, mTxt[i->pos]);
-      QPoint r2 = QPoint{deltaX(d2), deltaY(d2)} * mRadius;
-
-      path.lineTo(pt - r1);
-      path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
-    }
-    else
-      path.lineTo(toImage(i->pos));
-  }
-
-  if (angle < 0)
-    mShapes.emplace_back(path.simplified());
-  else if (dashCt * 4 < end - begin)
-    mShadows.emplace_back(path.simplified().translated(mShadowDelta, mShadowDelta));
-}
-
-
-
-void Render::findParagraphs()
-{
-  QList<Paragraph> active;
-  QString line;
-  int spaces = 0;
-  int lineX  = 0;
-
-  for (int y = 0; y < mGraph.height(); ++y)
-  {
-    for (int x = 0; x < mGraph.width(); ++x)
-    {
-      if (mGraph(x,y).kind() == Text)
-      {
-        auto ch  = mTxt(x,y);
-        bool spc = ch.isSpace();
-        spaces   = spc ? spaces + 1 : 0;
-
-        if (line.isEmpty())
-          lineX = x;
-
-        if (!spc || !line.isEmpty())
-          line.append(ch);
-
-        if (spaces <= 1 && x + 1 < mTxt.width())
-          continue;
-      }
-
-      if (line.isEmpty())
-        continue;
-
-      line.truncate(line.size() - spaces);
-      addLineToParagraphs(std::move(line), TextPos{lineX, y});
-    }
-  }
-
-  mParagraphs.splice(mParagraphs.end(), mActives);
-}
-
-
-
-void Render::addLineToParagraphs(QString&& line, TextPos pos)
-{
-  for (auto para = mActives.begin(); para != mActives.end(); )
-  {
-    if (pos.y > para->bottom() + 1)
-    {
-      auto old = para++;
-      mParagraphs.splice(mParagraphs.end(), mActives, old);
-    }
-    else if (para->addLine(std::move(line), pos))
-      return;
-    else
-      ++para;
-  }
-
-  mActives.emplace_back(std::move(line), pos);
-}
-
-
-
-void Render::apply(const Hints& hints)
-{
-  for (auto& hint: hints)
-  {
-    auto hintPt = toImage(hint.pos);
-    if (hint.color.isValid())
-    {
-      for (auto i = mShapes.rbegin(); i != mShapes.rend(); ++i)
-        if (i->path.contains(hintPt))
-        { i->bg = hint.color; break; }
-    }
-  }
-
-  for (auto& para: mParagraphs)
-  {
-    auto paraPt = toImage(para.innerPoint());
-
-    for (auto& shape: mShapes)
-      if (shape.path.contains(paraPt))
-        para.color = shape.bg.isValid() && shape.bg.lightness() < 100 ? Qt::white : Qt::black;
-  }
+  assert(mBoundingBox.isValid());
+  return mBoundingBox.size();
 }
 
 
 
 void Render::paint(QPaintDevice* dev)
 {
+  mOuterShapes = shapePaths(mShapes.outer, mShadowDelta);
+  mInnerShapes = shapePaths(mShapes.inner, 0);
+  applyHints(Qt::white);
+
   QImage shadowImg;
   if (mShadowMode == Shadow::Blurred)
   {
     shadowImg = QImage{size(), QImage::Format_Alpha8};
     shadowImg.fill(Qt::transparent);
     mPainter.begin(&shadowImg);
-    drawShapes(mShadows, Qt::black);
+    drawShapes(mOuterShapes, Qt::black);
     mPainter.end();
   }
 
   mPainter.begin(dev);
   mPainter.setRenderHint(QPainter::SmoothPixmapTransform);
   mPainter.setFont(mFont);
+  mPainter.translate(-mBoundingBox.topLeft());
 
   if (mAntialias)
   {
@@ -361,7 +171,7 @@ void Render::paint(QPaintDevice* dev)
       break;
 
     case Shadow::Simple:
-      drawShapes(mShadows, Qt::lightGray);
+      drawShapes(mOuterShapes, Qt::lightGray);
       break;
 
     case Shadow::Blurred:
@@ -370,8 +180,9 @@ void Render::paint(QPaintDevice* dev)
       break;
   }
 
-  drawShapes(mShapes, Qt::white);
+  drawShapes(mInnerShapes, Qt::white);
   drawLines();
+  drawMarks();
   drawParagraphs();
 
   mPainter.end();
@@ -379,12 +190,62 @@ void Render::paint(QPaintDevice* dev)
 
 
 
-void Render::drawShapes(const ShapeList& shapes, const QColor& defaultColor)
+auto Render::shapePaths(const Shapes::List& shapes, int delta) const -> ShapePaths
 {
-  QPen pen{mSolidPen};
+  ShapePaths paths;
+
   for (auto& shape: shapes)
   {
-    auto color = shape.bg.isValid() ? shape.bg : defaultColor;
+    auto path = shape.path(mScaleX, mScaleY, mRadius);
+    if (delta)
+      path.translate(delta, delta);
+
+    paths.emplace_front(path);
+  }
+
+  paths.reverse();
+  return paths;
+}
+
+
+
+void Render::applyHints(const QColor& defaultColor)
+{
+  mInnerShapes.reverse();
+
+  for (auto& hint: mHints)
+  {
+    if (!hint.color.isValid())
+      continue;
+
+    auto hintPt = textToImage(hint.x, hint.y);
+    for (auto& shape: mInnerShapes)
+      if (shape.path.contains(hintPt))
+      { shape.color = hint.color; break; }
+  }
+
+  mInnerShapes.reverse();
+
+  for (const auto& shape: mInnerShapes)
+  {
+    auto color     = shape.color.isValid() ? shape.color : defaultColor;
+    bool darkShape = color.lightness() < 100;
+
+    for (auto& para: mParagraphs)
+      if (shape.path.contains(textToImage(para.topInnerX(), para.top())))
+        para.color = darkShape ? Qt::white : Qt::black;
+  }
+}
+
+
+
+void Render::drawShapes(const ShapePaths& shapes, const QColor& defaultColor)
+{
+  QPen pen{mSolidPen};
+
+  for (auto& shape: shapes)
+  {
+    auto color = shape.color.isValid() ? shape.color : defaultColor;
     pen.setColor(color);
     mPainter.setPen(pen);
     mPainter.setBrush(color);
@@ -396,158 +257,108 @@ void Render::drawShapes(const ShapeList& shapes, const QColor& defaultColor)
 
 void Render::drawLines()
 {
-  mDone.clear();
-  for (int y = 0; y < mGraph.height(); ++y)
-  {
-    for (int x = 0; x < mGraph.width(); ++x)
-    {
-      auto node = mGraph(x,y);
-      if (node.edges() & ~mDone(x,y) & (Right|DownRight|Down|DownLeft))
-        for (Direction dir = Right; dir != Left; dir = turnedRight45(dir))
-          if (node.edges() & ~mDone(x,y) & dir)
-            drawLineFrom(TextPos{x, y}, dir);
-
-      if (node.kind() == Arrow)
-        drawArrow(TextPos{x, y});
-    }
-  }
-}
-
-
-
-void Render::drawLineFrom(TextPos pos0, Direction dir)
-{
-  auto revDir = opposite(dir);
-  auto pos    = pos0;
-  bool dashed = true;
-  Node node   = mGraph[pos];
-
-  QPainterPath path;
-  if (node.kind() != Round)
-    path.moveTo(toImage(pos));
-  else if (dir == Right)
-    path.moveTo(toImage(pos) + QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius});
-  else
-  {
-    // This is a rounded corner like so:  /---    or like so:  /---
-    // And it is not a closed shape       |       (future)    /
-    QPoint pt  = toImage(pos);
-    QPoint r1  = QPoint{-mRadius, 0};
-    QPoint r2  = QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius};
-
-    path.moveTo(pt - r1);
-    path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
-  }
-
-  while (node.edges() & ~mDone[pos] & dir)
-  {
-    mDone[pos] |= dir;
-    pos        += dir;
-
-    mDone[pos] |= revDir;
-    node        = mGraph[pos];
-    dashed     &= node.isDashed();
-
-    if (node.kind() == Round)
-    {
-      // Rounded corner is drawn with a Bézier curve
-      QPoint pt = toImage(pos);
-      QPoint r1 = QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius};
-
-      dir    = mGraph.walkCorner(dir, pos, mTxt[pos]);
-      revDir = opposite(dir);
-
-      QPoint r2 = QPoint{deltaX(dir)*mRadius, deltaY(dir)*mRadius};
-      path.lineTo(pt - r1);
-      path.cubicTo(pt - r1 * 0.44771525, pt + r2 * 0.44771525, pt + r2);
-    }
-  }
-
-  if (node.kind() != Round) // would only happen for closed shape
-    path.lineTo(toImage(pos));
-
-  mPainter.setPen(dashed ? mDashedPen : mSolidPen);
   mPainter.setBrush(Qt::NoBrush);
-  mPainter.drawPath(path);
-}
-
-
-
-void Render::drawArrow(TextPos pos)
-{
-  int arrowIdx;
-  switch (mTxt[pos].toLatin1())
+  for (auto& line: mShapes.lines)
   {
-    case '>': arrowIdx = 0; break;
-    case 'v':
-    case 'V': arrowIdx = 1; break;
-    case '<': arrowIdx = 2; break;
-    case '^': arrowIdx = 3; break;
-    default:  Q_UNREACHABLE(); // GCOV_EXCL_LINE
-  }
+    switch (line.style())
+    {
+      case Edge::Weak:
+      case Edge::Solid:  mPainter.setPen(mSolidPen); break;
+      case Edge::Dashed: mPainter.setPen(mDashedPen); break;
+      case Edge::None:   assert(false);
 
-  mPainter.setPen(Qt::NoPen);
-  mPainter.setBrush(mBrush);
-  mPainter.drawPolygon(mArrows[arrowIdx].translated(toImage(pos)));
+      case Edge::Double:
+        mPainter.setPen(mDoubleOuterPen);
+        mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
+        mPainter.setPen(mDoubleInnerPen);
+        break;
+    }
+
+    mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
+  }
 }
 
 
 
-namespace {
-QRect alignedRect(Qt::Alignment alignment, int width, const QRect& rect)
+inline QPoint Render::graphToImage(Point p) const noexcept
+{ return QPoint(qRound(p.x * mScaleX), qRound(p.y * mScaleY)); };
+
+
+
+void Render::drawMarks()
 {
-  int newX;
-  switch (alignment)
+  for (auto& node: mGraph)
   {
-    case Qt::AlignLeft:    newX = rect.x(); break;
-    case Qt::AlignHCenter: newX = rect.x() + (rect.width() - width) / 2; break;
-    case Qt::AlignRight:   newX = rect.x() + rect.width() - width; break;
-    default:               return rect;
+    switch (node.mark())
+    {
+      case Node::NoMark:
+        continue;
+
+      case Node::RightArrow:
+      case Node::UpArrow:
+      case Node::LeftArrow:
+      case Node::DownArrow:
+        mPainter.setPen(Qt::NoPen);
+        mPainter.setBrush(mBrush);
+        mPainter.drawPolygon(mMarks[node.mark()].translated(graphToImage(node.point())));
+        break;
+
+      case Node::EmptyCircle:
+        mPainter.setPen(mSolidPen);
+        mPainter.setBrush(Qt::white);
+        mPainter.drawEllipse(graphToImage(node.point()), mCircle, mCircle);
+        break;
+
+      case Node::FilledCircle:
+        mPainter.setPen(Qt::NoPen);
+        mPainter.setBrush(mBrush);
+        mPainter.drawEllipse(graphToImage(node.point()), mCircle, mCircle);
+        break;
+    }
   }
-
-  return QRect{newX, rect.y(), width, rect.height()};
 }
-} // namespace
 
 
 
-namespace {
-inline int leadingSpaces(const QString& s)
+inline QPoint Render::textToImage(int x, int y) const noexcept
 {
-  for (int i = 0; i < s.size(); ++i)
-    if (!s[i].isSpace())
-      return i;
+  auto ix = qRound(mScaleX * (x*2 - 1));
+  auto iy = qRound(mScaleY * (y*2 - 1));
 
-  Q_UNREACHABLE(); // GCOV_EXCL_LINE
-}                  // GCOV_EXCL_LINE
-} // namespace
+  return QPoint{ix, iy};
+}
+
+
+
+inline QRect Render::textToImage(const Paragraph& p) const noexcept
+{
+  auto wd = qRound(mScaleX * p.width() * 2);
+  auto ht = qRound(mScaleY * p.height() * 2);
+
+  return QRect{textToImage(p.left(), p.top()), QSize{wd, ht}};
+}
 
 
 
 void Render::drawParagraphs()
 {
   QFontMetrics fm{mFont};
-  mPainter.setPen(mSolidPen);
-
-  for (const auto& para: mParagraphs)
+  for (auto& para: mParagraphs)
   {
     auto align = para.alignment();
-    auto pixwd = para.pixelWidth(fm);
-    auto orect = imageRect(para);
-    auto rect  = alignedRect(align, pixwd, orect);
+    auto rect  = textToImage(para);
 
-    if (para.color.isValid())
-      mPainter.setPen(para.color);
-
-    for (int i = 0; i < para.numberOfLines(); ++i)
+    mPainter.setPen(para.color.isValid() ? para.color : Qt::black);
+    for (int rowIdx = 0; rowIdx < para.height(); ++rowIdx)
     {
-      auto& line = para[i];
-      QRect lrect{rect.x(), rect.y() + i*mScaleY, rect.width(), mScaleY};
+      auto& rowTxt = para[rowIdx];
+      auto  lrect  = rect.adjusted(0, qRound(rowIdx * 2 * mScaleY), 0, 0);
 
       if (align == Qt::Alignment{})
-        lrect.adjust(leadingSpaces(line)*mScaleX, 0, 0, 0);
+        lrect.adjust(qRound(para.indent(rowIdx) * 2 * mScaleX), 0, 0, 0);
 
-      mPainter.drawText(lrect, static_cast<int>(align), line.trimmed());
+      auto rowStr = QString::fromWCharArray(rowTxt.data(), static_cast<int>(rowTxt.size()));
+      mPainter.drawText(lrect, static_cast<int>(align), rowStr);
     }
   }
 }

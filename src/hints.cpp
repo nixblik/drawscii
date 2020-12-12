@@ -16,39 +16,51 @@
     along with Drawscii.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "hints.h"
-#include "textimg.h"
-#include "graph.h"
-#include <QRegExp>
+#include "textimage.h"
+#include <regex>
 
 
 
-Hints Hints::from(const TextImg& txt, Graph& graph)
+inline Hint::Hint(int nx, int ny, Color c) noexcept
+  : x{nx},
+    y{ny},
+    color{c}
+{}
+
+
+
+Hints findHints(TextImage& text)
 {
-  static QRegExp colorRegex{R"(\bc[0-9A-Z]{3}\b)"};
+  static std::wregex colorRegex{LR"(\bc[0-9A-Z]{3}\b)"};
 
   Hints result;
-  for (int y = 0; y < txt.height(); ++y)
+  for (int y = 0; y < text.height(); ++y)
   {
-    auto& line = txt[y];
-    for (int idx = 0; (idx = colorRegex.indexIn(line, idx)) != -1; idx += colorRegex.matchedLength())
-    {
-      QColor color;
-      auto name = line.midRef(idx+1, 3);
+    auto& line  = text[y];
+    auto  match = std::wsregex_iterator{line.begin(), line.end(), colorRegex};
+    auto  mend  = std::wsregex_iterator{};
 
-      if      (name == "RED") color = QColor("#FF4136");
-      else if (name == "GRE") color = QColor("#2ECC40");
-      else if (name == "BLU") color = QColor("#0074d9");
-      else if (name == "PNK") color = QColor("#BC35CF");
-      else if (name == "YEL") color = QColor("#FFDC00");
-      else if (name == "BLK") color = QColor("#111111");
+    for (auto i = match; i != mend; ++i)
+    {
+      auto&  name = (*i)[0];
+      QColor color;
+
+      if      (name == L"cRED") color = QColor("#FF4136");
+      else if (name == L"cGRE") color = QColor("#2ECC40");
+      else if (name == L"cBLU") color = QColor("#0074d9");
+      else if (name == L"cPNK") color = QColor("#BC35CF");
+      else if (name == L"cYEL") color = QColor("#FFDC00");
+      else if (name == L"cBLK") color = QColor("#111111");
       else
-        color = QColor("#" + name);
+        color = QColor{QString::fromStdWString(name).replace(0, 1, '#')};
 
       if (!color.isValid())
         continue;
 
-      result.emplace_back(idx, y, color);
-      graph.setEmpty(idx, y, colorRegex.matchedLength());
+      result.emplace_front(i->position(), y, color);
+
+      for (auto x = i->position(), endx = x + i->length(); x != endx; ++x)
+        text.category(static_cast<int>(x), y) = Category::Other;
     }
   }
 
