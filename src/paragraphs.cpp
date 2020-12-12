@@ -67,7 +67,7 @@ bool Paragraph::addRow(wstring_view row, int x, int y)
 Qt::Alignment Paragraph::alignment() const noexcept
 {
   if (mRows.size() <= 1)
-    return Qt::AlignHCenter; // TODO: Infer alignment from surrounding drawing
+    return Qt::AlignHCenter;
 
   int left    = 0;
   int center  = 0;

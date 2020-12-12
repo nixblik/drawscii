@@ -177,7 +177,7 @@ class Node
     { return mDone == 0xFF; }
 
     void clearEdgesDone() noexcept
-    { mDone = 0; }
+    { mDone = mDone0; }
 
   private:
     Edge mEdges[8];
@@ -186,6 +186,7 @@ class Node
     uint8_t mMark;
     uint8_t mForm;
     uint8_t mDone;
+    uint8_t mDone0;
 };
 
 
@@ -206,8 +207,7 @@ class Node::EdgeRef
     Style style() const noexcept
     { return mNode->mEdges[mIndex].style(); }
 
-    void setStyle(Style style) noexcept
-    { source()->mEdges[index()].setStyle(style); }
+    void setStyle(Style style) noexcept;
 
     const Node* source() const noexcept
     { return mNode; }
@@ -222,11 +222,11 @@ class Node::EdgeRef
     Angle angle() const noexcept
     { return Angle{mIndex * 45}; }
 
-    bool done() const noexcept // FIXME: Too expensive. Start out by marking only edges todo that exist. Then the test will be much quicker in Node::allEdgesDone()
+    bool done() const noexcept
     { return mNode->mDone & (1u << mIndex); }
 
     void setDone() noexcept
-    { source()->mDone |= (1u << index()); }
+    { mNode->mDone |= (1u << index()); }
 
     /// \internal
     int index() const noexcept

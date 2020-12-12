@@ -25,7 +25,8 @@ constexpr Node::Node() noexcept
     mY{-32768},
     mMark{NoMark},
     mForm{Straight},
-    mDone{0}
+    mDone{0xFF},
+    mDone0{0xFF}
 {}
 
 
@@ -36,10 +37,23 @@ inline Node::Node(int x, int y)
     mY{static_cast<int16_t>(y)},
     mMark{NoMark},
     mForm{Straight},
-    mDone{0}
+    mDone{0xFF},
+    mDone0{0xFF}
 {
   if (x > std::numeric_limits<int16_t>::max() || y > std::numeric_limits<int16_t>::max())
     throw std::runtime_error{"drawing is too large"};
+}
+
+
+
+void Node::EdgeRef::setStyle(Node::EdgeRef::Style style) noexcept
+{
+  assert(style != Edge::None);
+  mNode->mEdges[mIndex].setStyle(style);
+
+  auto clrBit    = ~(1u << mIndex);
+  mNode->mDone  &= clrBit;
+  mNode->mDone0 &= clrBit;
 }
 
 
@@ -152,10 +166,10 @@ Graph::Graph() noexcept
 
 namespace {
 
+// FNV-1a hash of two 16-bit integers
 template<typename Int>
 inline uint hash(Int x, Int y) noexcept
 {
-  // FNV-1a hash of two 16-bit integers
   uint32_t h = 2166136261u;
 
   auto x2 = static_cast<uint>(x);

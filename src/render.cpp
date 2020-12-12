@@ -92,7 +92,7 @@ void Render::computeRenderParams()
 {
   QFontMetrics fm{mFont};
   mScaleX = 0.5 * fm.width("w");
-  mScaleY = 0.5 * fm.height(); // TODO: Provide compression for x and y axis, but this depends on the font, so be careful
+  mScaleY = 0.5 * fm.height();
   mRadius = (mScaleX + mScaleY) * 0.333333;
   mCircle = qRound((mScaleX + mScaleY) * 0.2);
   mShadowDelta = 2;
@@ -352,7 +352,7 @@ void Render::drawParagraphs()
     for (int rowIdx = 0; rowIdx < para.height(); ++rowIdx)
     {
       auto& rowTxt = para[rowIdx];
-      auto  lrect  = rect.adjusted(0, qRound(rowIdx * 2 * mScaleY), 0, 0); // FIXME: We might as well just use textRectToImage here and below
+      auto  lrect  = rect.adjusted(0, qRound(rowIdx * 2 * mScaleY), 0, 0);
 
       if (align == Qt::Alignment{})
         lrect.adjust(qRound(para.indent(rowIdx) * 2 * mScaleX), 0, 0, 0);
