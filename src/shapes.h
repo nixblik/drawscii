@@ -33,6 +33,9 @@ class Shape
     void lineTo(Point p);
     void arcTo(Point p, Point ctrl);
 
+    const Point& topLeft() const noexcept
+    { return mTopLeft; }
+
     Edge::Style style() const noexcept
     { return mStyle; }
 
@@ -46,6 +49,7 @@ class Shape
     struct Element;
 
     std::vector<Element> mPath;
+    Point mTopLeft;
     Edge::Style mStyle;
 };
 

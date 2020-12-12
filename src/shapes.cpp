@@ -107,6 +107,21 @@ Shapes ShapeFinder::findShapes()
 
 
 
+namespace {
+inline bool isAboveLeft(const Point& a, const Point& b) noexcept
+{ return a.y < b.y || (a.y == b.y && a.x < b.x); }
+} // namespace
+
+
+
+struct ShapeUpLeft
+{
+  inline bool operator()(const Shape& s1, const Shape& s2)
+  { return isAboveLeft(s1.topLeft(), s2.topLeft()); }
+};
+
+
+
 void ShapeFinder::findClosedShapes()
 {
   for (auto& node: mGraph)
@@ -120,8 +135,7 @@ void ShapeFinder::findClosedShapes()
           findClosedShapeAt(edge);
   }
 
-  mShapes.outer.reverse();
-  mShapes.inner.reverse();
+  mShapes.inner.sort(ShapeUpLeft{});
 }
 
 
@@ -269,7 +283,8 @@ void ShapeFinder::findLineAt(Node::edge_ptr edge0)
 
 
 inline Shape::Shape() noexcept
-  : mStyle{Edge::Solid}
+  : mTopLeft{std::numeric_limits<int>::max(), std::numeric_limits<int>::max()},
+    mStyle{Edge::Solid}
 {}
 
 
@@ -278,13 +293,21 @@ Shape::~Shape()
 
 
 void Shape::moveTo(Point p)
-{ mPath.emplace_back(p, Move); }
+{
+  if (mPath.empty() || isAboveLeft(p, mTopLeft))
+    mTopLeft = p;
+
+  mPath.emplace_back(p, Move);
+}
 
 
 
 void Shape::lineTo(Point p)
 {
   assert(!mPath.empty());
+
+  if (isAboveLeft(p, mTopLeft))
+    mTopLeft = p;
 
   // Attempt to merge straight lines
   if (mPath.back().kind == Line)
@@ -307,6 +330,10 @@ void Shape::lineTo(Point p)
 void Shape::arcTo(Point tgt, Point ctrl)
 {
   assert(!mPath.empty());
+
+  if (isAboveLeft(tgt, mTopLeft))
+    mTopLeft = tgt;
+
   mPath.emplace_back(ctrl, Arc);
   mPath.emplace_back(tgt, Arc);
 }
