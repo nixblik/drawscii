@@ -73,6 +73,11 @@ Graph constructGraph(TextImage& text)
   Graph graph;
   GraphConstructor creator{text, graph};
 
+  size_t chars = 0;
+  for (int y = 0; y < text.height(); ++y)
+    chars += text[y].size();
+
+  graph.reserve(static_cast<uint>(chars / 2));
   creator.createSomeEdges();
   creator.createMoreEdges();
 

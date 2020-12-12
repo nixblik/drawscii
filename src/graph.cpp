@@ -21,8 +21,8 @@ Angle Angle::relativeTo(Angle other) const noexcept
 
 constexpr Node::Node() noexcept
   : mEdges{},
-    mX{0},
-    mY{0},
+    mX{-32768}, // Sentinel for cuckoo hash
+    mY{-32768},
     mMark{NoMark},
     mForm{Straight},
     mDone{0}
@@ -140,6 +140,8 @@ auto Node::continueLine(const_edge_ptr edge) noexcept -> edge_ptr
 
 Graph::Graph() noexcept
   : mCurNode{nullptr},
+    mSize{0},
+    mCapacity{0},
     mLeft{0},
     mRight{0},
     mTop{0},
@@ -148,11 +150,74 @@ Graph::Graph() noexcept
 
 
 
+namespace {
+
+template<typename Int>
+inline uint hash(Int x, Int y) noexcept
+{
+  // FNV-1a hash of two 16-bit integers
+  uint32_t h = 2166136261u;
+
+  auto x2 = static_cast<uint>(x);
+  h       = (h ^ (x2 & 0xFFu)) * 16777619u;
+  x2    >>= 8;
+  h       = (h ^ (x2 & 0xFFu)) * 16777619u;
+
+  auto y2 = static_cast<uint>(y);
+  h       = (h ^ (y2 & 0xFFu)) * 16777619u;
+  y2    >>= 8;
+  h       = (h ^ (x2 & 0xFFu)) * 16777619u;
+
+  return h;
+}
+} // namespace
+
+
+
+inline uint Node::hash() const noexcept
+{ return ::hash(mX, mY); }
+
+
+
+void Graph::reserve(uint capacity)
+{
+  auto newCapa = std::max(mCapacity, 256u);
+  while (newCapa < capacity)
+    newCapa *= 2;
+
+  if (newCapa <= mCapacity)
+    return;
+
+  auto newTable = std::make_unique<Node[]>(newCapa+1);
+  new(&newTable[newCapa]) Node{0, 0}; // Valid node at the end stops iteration
+
+  if (mTable)
+  {
+    auto cap = newCapa - 1;
+    for (Node& node: *this)
+    {
+      Node* pos;
+      for (auto h = node.hash(); !(pos = &newTable[h&cap])->isSentinel(); ++h)
+      {}
+
+      new(pos) Node{std::move(node)};
+    }
+  }
+
+  mTable    = std::move(newTable);
+  mCapacity = newCapa;
+}
+
+
+
 Node& Graph::operator[](Point p)
 {
-  for (auto i = mNodes.begin(); i != mNodes.end(); ++i)
-    if (i->point() == p)
-      return *i;
+  auto  cap = mCapacity - 1;
+  Node* pos;
+
+  for (auto h = hash(p.x, p.y); !(pos = &mTable[h&cap])->isSentinel(); ++h)
+    if (pos->point() == p)
+      return *pos;
 
   throw std::invalid_argument{"invalid graph node accessed"};
 }
@@ -161,18 +226,28 @@ Node& Graph::operator[](Point p)
 
 Node& Graph::moveTo(int x, int y)
 {
-  for (auto i = mNodes.begin(); i != mNodes.end(); ++i)
-    if (i->x() == x && i->y() == y)
-      return *(mCurNode = &*i);
+  for (;;)
+  {
+    auto  cap = mCapacity - 1;
+    Node* pos;
 
-  mNodes.emplace_back(x, y);
-  mCurNode = &mNodes.back();
-  mLeft    = std::min(mLeft, x);
-  mRight   = std::max(mRight, x);
-  mTop     = std::min(mTop, y);
-  mBottom  = std::max(mBottom, y);
+    for (auto h = hash(x, y); !(pos = &mTable[h&cap])->isSentinel(); ++h)
+      if (pos->x() == x && pos->y() == y)
+        return *(mCurNode = pos);
 
-  return *mCurNode;
+    if (++mSize * 2 >= mCapacity)
+    {
+      reserve(mCapacity * 4);
+      continue;
+    }
+
+    mCurNode = new(pos) Node{x, y};
+    mLeft    = std::min(mLeft, x);
+    mRight   = std::max(mRight, x);
+    mTop     = std::min(mTop, y);
+    mBottom  = std::max(mBottom, y);
+    return *mCurNode;
+  }
 }
 
 
@@ -216,6 +291,6 @@ Node& Graph::lineTo(int dx, int dy, Edge::Style style)
 
 void Graph::clearEdgesDone() noexcept
 {
-  for (auto& node: mNodes)
+  for (auto& node : *this)
     node.clearEdgesDone();
 }

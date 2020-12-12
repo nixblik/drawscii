@@ -160,7 +160,8 @@ void TestDrawscii::checkImagesEqual(const QString& output, const QString& truth)
   }
 
   auto delta = static_cast<double>(diff) / (outputImg.width() * outputImg.height());
-  QVERIFY(delta < 4);
+  if (delta > 4)
+    QFAIL(qPrintable("images are not identical: TSS/N = " + QString::number(delta)));
 
   if (delta > 0.1)
     QWARN(qPrintable("images are not identical: TSS/N = " + QString::number(delta)));

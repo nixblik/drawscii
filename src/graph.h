@@ -17,6 +17,7 @@
 */
 #pragma once
 #include "common.h"
+#include <memory>
 #include <vector>
 
 
@@ -123,10 +124,17 @@ class Node
     constexpr Node() noexcept;
 
     /// \internal
+    bool isSentinel() const noexcept
+    { return mX == -32768; }
+
+    /// \internal
+    uint hash() const noexcept;
+
+    /// \internal
     Node(int x, int y);
 
     Node(Node&&) noexcept
-    =default;
+    = default;
 
     Node(const Node&) =delete;
     Node& operator=(Node&&) noexcept =delete;
@@ -282,22 +290,55 @@ inline auto Node::edge(int idx) noexcept -> edge_ptr
 
 
 
+template<typename Node>
+class GraphIterator
+{
+  public:
+    explicit GraphIterator(Node* iter) noexcept
+      : mIter{iter}
+    {}
+
+    Node& operator*() const noexcept
+    { return *mIter; }
+
+    Node* operator->() const noexcept
+    { return mIter; }
+
+    GraphIterator& operator++() noexcept
+    {
+      do { ++mIter; } while (mIter->isSentinel());
+      return *this;
+    }
+
+    bool operator!=(GraphIterator other) const noexcept
+    { return mIter != other.mIter; }
+
+  private:
+    Node* mIter;
+};
+
+
+
 class Graph
 {
   public:
-    Graph() noexcept;
+    using iterator       = GraphIterator<Node>;
+    using const_iterator = GraphIterator<const Node>;
 
-    Node* begin() noexcept
-    { return &*mNodes.begin(); }
+    explicit Graph() noexcept;
+    void reserve(uint capacity);
 
-    const Node* begin() const noexcept
-    { return &*mNodes.begin(); }
+    iterator begin() noexcept
+    { return iterator{&mTable[0]}; }
 
-    Node* end() noexcept
-    { return &*mNodes.end(); }
+    const_iterator begin() const noexcept
+    { return const_iterator{&mTable[0]}; }
 
-    const Node* end() const noexcept
-    { return &*mNodes.end(); }
+    iterator end() noexcept
+    { return iterator{&mTable[mCapacity]}; }
+
+    const_iterator end() const noexcept
+    { return const_iterator{&mTable[mCapacity]}; }
 
     int left() const noexcept
     { return mLeft; }
@@ -311,17 +352,17 @@ class Graph
     int bottom() const noexcept
     { return mBottom; }
 
-    const Node& operator[](Point p) const;
     Node& operator[](Point p);
     Node& moveTo(int x, int y);
     Node& lineTo(int dx, int dy, Edge::Style style);
     void clearEdgesDone() noexcept;
 
-  private:
-    using Nodes = std::vector<Node>; // FIXME: Not optimal at all, use hashmap; approximate size from number of chars in TextImage
-
-    Nodes mNodes;
+  public:
+    std::unique_ptr<Node[]> mTable;
     Node* mCurNode;
+    uint mSize;
+    uint mCapacity;
+
     int mLeft;
     int mRight;
     int mTop;
