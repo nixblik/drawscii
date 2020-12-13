@@ -200,8 +200,12 @@ void ShapeFinder::addClosedShape(ShapePoints::const_iterator begin, ShapePoints:
     auto node = i->node;
     if (node->form() == Node::Bezier)
     {
-      assert(i + 1 != end);
-      auto next = (++i)->node;
+      Node* next;
+      if (i + 1 != end)
+        next = (++i)->node;
+      else
+        next = (begin+1)->node;
+
       shape.arcTo(next->point(), node->point());
     }
     else
@@ -319,7 +323,6 @@ void ShapeFinder::findLineAt(Node::edge_ptr edge0)
     // Only curved corners have to be drawn, otherwise lines are straight
     if (curTarget->form() == Node::Bezier)
     {
-      assert(!nextEdge->done());
       shape.lineTo(curEdge->source()->point());
       shape.arcTo(nextEdge->target(), curTarget->point());
     }

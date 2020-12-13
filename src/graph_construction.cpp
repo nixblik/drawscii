@@ -97,7 +97,7 @@ inline GraphConstructor::GraphConstructor(TextImage& text, Graph& graph) noexcep
 /// their characters as "drawing", and creates the lines in the corner. These
 /// kind of structures are recognized:
 ///
-///                                |
+///                                     |
 ///     .-    .-   .-   .-   /-   /-   -)-
 ///     |    /     \    '-   |    \-    |
 ///
@@ -152,7 +152,7 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, Node::Form for
     auto ch2 = mText(x, y+dy);
     if ((ch2 == OneOf{L"|!:+"}) ||
         (ch2 == (dx*dy < 0 ? '/' : '\\') && form == Node::Straight) ||
-        (ch2 == (dx*dy < 0 ? '.' : '\'') && form == Node::Bezier))
+        (ch2 == (   dy < 0 ? '.' : '\'') && form == Node::Bezier))
     {
       mText.category(x, y)    = Category::Drawing;
       mText.category(x+dx, y) = Category::Drawing;

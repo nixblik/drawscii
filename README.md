@@ -110,7 +110,7 @@ tagged code blocks:
 
     ```{.ditaa width=80% im_fmt="pdf"}
     +---------+
-    | Drawing |<- - -here
+    | Drawing |<-----here
     +---------+
     ```
 
@@ -133,7 +133,91 @@ integration to work.
 
 ## Drawing
 
-FIXME: Lines, straight corners, round corners, text
+This section gives an overview of the rendering capabilities of Drawscii, by
+way of example. First, these are the line styles that are recognized:
+
+```
+-------    |  !  :      / \         Mixing styles  |
+=======    |  !  :     /   \        ---- - - ----  :
+- - - -    |  !  :    /     \       ---=======---  :
+```
+
+![Line styles in Drawscii](doc/lines.png)
+
+Drawscii attempts to match the visual appearance of the source text in the
+graphics it produces, which is why you cannot draw dotted diagonals, for
+example: There is simply no such character. For the same reason, a line must be
+dashed from start to end in the source text.
+
+```
+       +-----+       +
+\|/    !     |      / \
+-+-    !     +=====+
+/|\    !     |      \   \
+       +- - -+       +---+
+```
+
+![Pointed corners and junctions in Drawscii](doc/corners-pointed.png)
+
+The `+` character produces line crossings and pointed corners. The style of
+adjacent lines extends right up to the corner.
+
+```
+/-----\   /----\
+:     |   | /--/
+:     +---/ |
+:     |     |
+\- - -/     |
+```
+
+![Oblique corners in Drawscii](doc/corners-pointed.png)
+
+The above displays how oblique corners can be drawn using `/` (solidus) and `\`
+(reverse solidus). Below, drawing rounded corners using `.` (full stop), `'`
+(apostrophe), `` ` `` (grave accent) and `,` (comma) is illustrated. Note that
+line styles extend through rounded corners, which is why changing the line style
+at a rounded corner tends to look bad.
+
+```
+       .----.    .- - -.
+---.  /     /    :     |    ,--   ,--   |    \
+.--' /     /     :     |    |    /      `--   `--
+'---'      '--- -'-----'
+```
+
+![Round corners in Drawscii](doc/corners-round.png)
+
+There are some special marks that can be inserted in the midst of lines or at
+line crossings, and at line endings:
+
+```
+---*---   ---o---     |       |       | |     <--->   ^ ^ ^
+===*===   ===o===   --*--   --o--   --)-(--   <===>   | ! :
+- -*- -   - -o- -     |       |       | |     <- ->   v v v
+```
+
+![Line markings in Drawscii](doc/marks.png)
+
+Drawscii detects closed shapes and fills them with a white background. The fill
+color can be changed by writing `c` followed by a hexadecimal RGB code inside
+the shape, as illustrated below. Closed shapes will also get a shadow if their
+contour does not contain arrows or too much dashed line.
+
+```
++---------------------+   +-----+   +-----+   +- - -+
+|+----+   +----+  c357|   |cBLK |   |cBLU |   :cRED |
+||c135|   |c79A|      |   +-----+   +- - -+   +- - -+
+|+----+   +----+      |
+|                /----'   +-----+   +-----+   +-->--+
+|+----+   +----+ |        |cGRE :   |cYEL :   |cPNK |
+||c024|   |    | |        +-----+   +- - -+   +--<--+
+|+----+   +----+ |
++----------------'
+```
+
+![Filled shapes and colors in Drawscii](doc/colors.png)
+
+FIXME: Text alignment
 
 
 
