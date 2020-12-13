@@ -197,7 +197,7 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, Node::Form for
 
 
 
-void GraphConstructor::createLeapfrog(int x, int y, int dx)
+void GraphConstructor::createLeapfrog(int x, int y, int)
 {
   if (mText(x, y-1) == '|' && mText(x, y+1) == '|')
   {
@@ -211,11 +211,11 @@ void GraphConstructor::createLeapfrog(int x, int y, int dx)
       mText.category(x,   y+1) = Category::Drawing;
 
       mGraph.moveTo(2*x, 2*y-1);
-      mGraph.lineTo(+dx, +1, Edge::Solid).setForm(Node::Bezier);
-      mGraph.lineTo(-dx, +1, Edge::Solid);
+      mGraph.lineTo(+0, +2, Edge::Invisible);
 
       mGraph.moveTo(2*x-1, 2*y);
-      mGraph.lineTo(+2, +0, ch == '=' ? Edge::Double : Edge::Solid);
+      mGraph.lineTo(+1, +0, ch == '=' ? Edge::Double : Edge::Solid).setMark(Node::Leapfrog);
+      mGraph.lineTo(+1, +0, Edge::Invisible);
     }
   }
 }

@@ -48,6 +48,7 @@ QtApplication {
           "input/diag_tree.txt",
           "input/hell.txt",
           "input/intertwined.txt",
+          "input/leapfrog.txt",
           "input/letters.txt",
           "input/linked_shapes.txt",
           "input/parallelogram.txt",

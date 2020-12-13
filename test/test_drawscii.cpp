@@ -50,6 +50,7 @@ void TestDrawscii::verifyImageOutput_data()
   QTest::newRow("hell.png")            << "hell"            << "png" << "--font-size 20";
   QTest::newRow("hell.svg")            << "hell"            << "svg" << "--font-size 20";
   QTest::newRow("intertwined.png")     << "intertwined"     << "png" << "";
+  QTest::newRow("leapfrog.png")        << "leapfrog"        << "png" << "";
   QTest::newRow("letters.png")         << "letters"         << "png" << "--background transparent";
   QTest::newRow("linked_shapes.png")   << "linked_shapes"   << "png" << "";
   QTest::newRow("parallelogram.png")   << "parallelogram"   << "png" << "--background darkgray";

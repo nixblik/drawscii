@@ -33,6 +33,7 @@ $DRAWSCII -o $OUTPUT/diag_tree.bmp       $INPUT/diag_tree.txt
 $DRAWSCII -o $OUTPUT/hell.png            $INPUT/hell.txt            --font-size 20
 $DRAWSCII -o $OUTPUT/hell.svg            $INPUT/hell.txt            --font-size 20
 $DRAWSCII -o $OUTPUT/intertwined.png     $INPUT/intertwined.txt
+$DRAWSCII -o $OUTPUT/leapfrog.png        $INPUT/leapfrog.txt
 $DRAWSCII -o $OUTPUT/letters.png         $INPUT/letters.txt         --background transparent
 $DRAWSCII -o $OUTPUT/linked_shapes.png   $INPUT/linked_shapes.txt
 $DRAWSCII -o $OUTPUT/parallelogram.png   $INPUT/parallelogram.txt   --background darkgray

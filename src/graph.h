@@ -83,7 +83,7 @@ inline Angle operator-(Angle a, Angle b) noexcept
 class Edge
 {
   public:
-    enum Style { None, Weak, Solid, Double, Dashed };
+    enum Style { None, Invisible, Weak, Solid, Double, Dashed };
 
     constexpr Edge() noexcept
       : mStyle{None}
@@ -118,6 +118,7 @@ class Node
       NoMark = 0,
       EmptyCircle, FilledCircle,
       RightArrow, UpArrow, LeftArrow, DownArrow, // Order matters for isClosedMark()
+      Leapfrog
     };
 
     /// \internal

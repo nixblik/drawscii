@@ -123,6 +123,14 @@ void Render::computeRenderParams()
   mMarks[Node::UpArrow]   = rotated(arrow, 270);
   mMarks[Node::LeftArrow] = rotated(arrow, 180);
   mMarks[Node::DownArrow] = rotated(arrow, 90);
+
+  // Predraw the "leapfrog" mark
+  int leapR = qRound(mRadius * 0.7);
+  mLeapfrog = QPainterPath{};
+  mLeapfrog.moveTo(0, qRound(-mScaleY));
+  mLeapfrog.lineTo(0, -mRadius);
+  mLeapfrog.arcTo(-leapR, -mRadius, 2*leapR, 2*mRadius, 90, -180);
+  mLeapfrog.lineTo(0, qRound(mScaleY));
 }
 
 
@@ -262,16 +270,26 @@ void Render::drawLines()
   {
     switch (line.style())
     {
+      case Edge::None:
+        assert(false);
+
       case Edge::Weak:
-      case Edge::Solid:  mPainter.setPen(mSolidPen); break;
-      case Edge::Dashed: mPainter.setPen(mDashedPen); break;
-      case Edge::None:   assert(false);
+      case Edge::Solid:
+        mPainter.setPen(mSolidPen);
+        break;
+
+      case Edge::Dashed:
+        mPainter.setPen(mDashedPen);
+        break;
 
       case Edge::Double:
         mPainter.setPen(mDoubleOuterPen);
         mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
         mPainter.setPen(mDoubleInnerPen);
         break;
+
+      case Edge::Invisible:
+        continue;
     }
 
     mPainter.drawPath(line.path(mScaleX, mScaleY, mRadius));
@@ -313,6 +331,12 @@ void Render::drawMarks()
         mPainter.setPen(Qt::NoPen);
         mPainter.setBrush(mBrush);
         mPainter.drawEllipse(graphToImage(node.point()), mCircle, mCircle);
+        break;
+
+      case Node::Leapfrog:
+        mPainter.setPen(mSolidPen);
+        mPainter.setBrush(Qt::NoBrush);
+        mPainter.drawPath(mLeapfrog.translated(graphToImage(node.point())));
         break;
     }
   }

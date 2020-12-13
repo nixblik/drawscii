@@ -74,6 +74,7 @@ class Render
     QBrush mBrush;
     QPainter mPainter;
     QPolygonF mMarks[7];
+    QPainterPath mLeapfrog;
     Shadow mShadowMode;
     bool mAntialias;
 
