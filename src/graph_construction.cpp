@@ -345,6 +345,15 @@ void GraphConstructor::createDiagLine(int x, int y, int dx, Edge::Style style)
     mText.category(x+dx, y+1) = Category::Drawing;
   }
 
+  auto& categoryXY = mText.category(x, y);
+  if (!draw && categoryXY == Category::Drawing)
+  {
+    // The character is part of a corner; but which part?
+    if (mText(x-dx, y-1) == OneOf{L".,"} || mText(x, y-1) == OneOf{L".,"} ||
+        mText(x+dx, y+1) == OneOf{L"'`"} || mText(x, y+1) == OneOf{L"'`"})
+      draw = true;
+  }
+
   if (draw)
   {
     mText.category(x, y) = Category::Drawing;
