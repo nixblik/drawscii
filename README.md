@@ -3,7 +3,7 @@
 Drawscii is a command-line program that converts ASCII drawings to proper
 graphics files. Consider the following example drawing:
 
-```
+```txt <!-- doc/example-1.txt -->
                  +---------------+
         uses     |   Interface   |   implements
         .- - - ->|  Definitions  |<- - - - -.
@@ -44,6 +44,7 @@ down to boxes and arrows, mostly, but these are rendered very well.
 
 - [Installation](#installation)
 - [Usage](#usage)
+- [Drawing](#drawing)
 - [Build](#build)
 - [Acknowledgments](#acknowledgments)
 
@@ -136,7 +137,7 @@ integration to work.
 This section gives an overview of the rendering capabilities of Drawscii, by
 way of example. First, these are the line styles that are recognized:
 
-```
+```txt <!-- doc/lines.txt -->
 -------    |  !  :      / \         Mixing styles  |
 =======    |  !  :     /   \        ---- - - ----  :
 - - - -    |  !  :    /     \       ---=======---  :
@@ -149,7 +150,7 @@ graphics it produces, which is why you cannot draw dotted diagonals, for
 example: There is simply no such character. For the same reason, a line must be
 dashed from start to end in the source text.
 
-```
+```txt <!-- doc/corners-pointed.txt -->
        +-----+       +
 \|/    !     |      / \
 -+-    !     +=====+
@@ -162,7 +163,7 @@ dashed from start to end in the source text.
 The `+` character produces line crossings and pointed corners. The style of
 adjacent lines extends right up to the corner.
 
-```
+```txt <!-- doc/corners-oblique.txt -->
 /-----\   /----\
 :     |   | /--/
 :     +---/ |
@@ -170,7 +171,7 @@ adjacent lines extends right up to the corner.
 \- - -/     |
 ```
 
-![Oblique corners in Drawscii](doc/corners-pointed.png)
+![Oblique corners in Drawscii](doc/corners-oblique.png)
 
 The above displays how oblique corners can be drawn using `/` (solidus) and `\`
 (reverse solidus). Below, drawing rounded corners using `.` (full stop), `'`
@@ -178,7 +179,7 @@ The above displays how oblique corners can be drawn using `/` (solidus) and `\`
 line styles extend through rounded corners, which is why changing the line style
 at a rounded corner tends to look bad.
 
-```
+```txt <!-- doc/corners-round.txt -->
        .----.    .- - -.
 ---.  /     /    :     |    ,--   ,--   |    \
 .--' /     /     :     |    |    /      `--   `--
@@ -190,7 +191,7 @@ at a rounded corner tends to look bad.
 There are some special marks that can be inserted in the midst of lines or at
 line crossings, and at line endings:
 
-```
+```txt <!-- doc/marks.txt -->
 ---*---   ---o---     |       |       | |     <--->   ^ ^ ^
 ===*===   ===o===   --*--   --o--   --)-(--   <===>   | ! :
 - -*- -   - -o- -     |       |       | |     <- ->   v v v
@@ -203,7 +204,7 @@ color can be changed by writing `c` followed by a hexadecimal RGB code inside
 the shape, as illustrated below. Closed shapes will also get a shadow if their
 contour does not contain arrows or too much dashed line.
 
-```
+```txt <!-- doc/colors.txt -->
 +---------------------+   +-----+   +-----+   +- - -+
 |+----+   +----+  c357|   |cBLK |   |cBLU |   :cRED |
 ||c135|   |c79A|      |   +-----+   +- - -+   +- - -+
@@ -217,7 +218,25 @@ contour does not contain arrows or too much dashed line.
 
 ![Filled shapes and colors in Drawscii](doc/colors.png)
 
-FIXME: Text alignment
+At last, some examples to illustrate text alignment. Drawscii attempts to
+detect the intended alignment of text. If multiple lines are all left-aligned,
+or all right-aligned, or mostly centered, this will be reproduced in the
+output:
+
+```txt <!-- doc/text-align.txt -->
+These are               These are
+all left-aligned       definitely
+|                   right-aligned
+|                               |
+|          And these            |
+          are centered
+            roughly
+```
+
+![Text alignment in Drawscii](doc/text-align.png)
+
+Alignment matters because the font in the output image is often much narrower
+than the monospaced input text.
 
 
 

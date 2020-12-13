@@ -17,33 +17,15 @@
 */
 import qbs
 
-Project
-{
-  property string version: "0.8"
-  property string bindir: "bin"
-  property bool testcoverage: false
+Application {
+  files: [
+        "extract-examples.cpp",
+    ]
 
-  minimumQbsVersion: "1.12"
-  qbsSearchPaths: ["qbs"]
-
-  references: [
-    "src/drawscii.qbs",
-    "test/extract-examples.qbs",
-    "test/test.qbs",
+  Depends { name:"drawscii" }
+  cpp.cxxLanguageVersion: "c++14"
+  cpp.dynamicLibraries: ["stdc++fs"]
+  cpp.defines: [
+    'QT_DEPRECATED_WARNINGS',
   ]
-
-  Product {
-    name: "Project"
-    files: [
-          "README.md",
-          "configure.info",
-          "configure",
-          "makefile",
-          "run_tests",
-      ]
-  }
-
-  AutotestRunner {
-    arguments: ["-platform", "offscreen"]
-  }
 }
