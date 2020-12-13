@@ -6,13 +6,13 @@ graphics files. Consider the following example drawing:
 ```
                  +---------------+
         uses     |   Interface   |   implements
-        /------->|  Definitions  |<----------\
-        |        +---------------+           |
-        :                                    :
-        |                                    |
-+-------|-----+                     +--------|----+
-| Host  |     |                     | Host   |    |
-| +-----+---+ |         The         | +------+--+ |
+        .- - - ->|  Definitions  |<- - - - -.
+        :        +---------------+          :
+        :                                   :
+        :                                   :
++-------:-----+                     +-------:-----+
+| Host  :     |                     | Host  :     |
+| +-----+---+ |         The         | +-----+---+ |
 | | Program +---------Network-------->| Object  | |
 | +---------+ |                     | +---------+ |
 |             |                     | | Program | |
@@ -25,7 +25,18 @@ This ASCII file is converted by Drawscii to the following image:
 ![Example Drawscii output](./doc/example-1.png)
 
 Drawscii can produce a variety of output formats, in particular PNG, SVG and
-PDF.
+PDF. This makes it the ideal tool for postprocessing ASCII drawings in Markdown
+files and source code documentation, for example when using
+[Pandoc](https://pandoc.org) to produce PDF documents.
+
+*What is the difference to similar tools?*
+
+The focus of Drawscii is producing high-quality graphics suitable for
+"publication" in the web or in print. The text drawings in the original file
+shall be easy to read and write for anyone, which is why Drawscii does not use
+a graph programming language (such as [Graphviz](https://graphviz.org), for
+example), and neither does it use special tags to produce fancy shapes. You're
+down to boxes and arrows, mostly, but these are rendered very well.
 
 
 
@@ -40,13 +51,89 @@ PDF.
 
 ## Installation
 
-TODO
+On a Debian system, Drawscii can be installed from a PPA as follows:
+
+    sudo add-apt-repository ppa:nixblik/ppa
+    sudo apt-get update
+    sudo apt-get install drawscii
+
+Drawscii has a special [Ditaa](https://github.com/stathissideris/ditaa)
+command-line compatibility mode. To use it, create a symlink, for example:
+
+    sudo ln -s /usr/bin/drawscii /usr/local/bin/ditaa
+
+Now you can use Drawscii with all programs that already provide integration for
+Ditaa, for example [Pandoc](https://pandoc.org) with the
+[Pandoc-Imagine](https://github.com/hertogp/imagine) filter.
 
 
 
 ## Usage
 
-TODO
+Here are some quick examples of how Drawscii can be used, and its most
+important command-line options. For a complete reference, you can have a look
+at its manpage or `drawscii --help` output.
+
+Drawscii converts one text file at a time. The most basic call would be:
+
+    drawscii input.txt -o output.png
+
+The format of the output file is determined from its suffix, in this case PNG.
+You can generate many other formats, the most important being SVG and PDF.
+
+### Font Selection
+
+As a default, Drawscii uses [Open Sans](https://www.opensans.com) with a size
+of 12px, if available. But the font used for rendering can be customized:
+
+    drawscii input.txt -o output.png --font "Roboto Slab" --font-size 16
+
+This will also increase the size of the whole drawing. Drawscii computes the
+scale of the output image from the height and width of the font. Just switching
+the font may therefore widen or narrow the diagram slightly.
+
+### Background Color
+
+PNG files produced by Drawscii have a white background by default. That can
+be changed to any color or, most importantly, to a transparent background:
+
+    drawscii input.txt -o output.png --background #E0E0E0
+    drawscii input.txt -o output.png --background transparent
+
+SVG and PDF are transparent by default.
+
+### Usage With Pandoc
+
+I like to write documents in Markdown and use [Pandoc](https://pandoc.org) to
+produce PDF from them. Drawings are located right in the Markdown source, in
+tagged code blocks:
+
+    ```{.ditaa width=80% im_fmt="pdf"}
+    +---------+
+    | Drawing |<- - -here
+    +---------+
+    ```
+
+If you enabled the Ditaa command-line compatibility mode as described in
+[Installation](#installation), you can run such a Markdown document through
+Pandoc with the [Pandoc-Imagine](https://github.com/hertogp/imagine) filter:
+
+    pandoc -F pandoc-imagine input.md -o output.pdf
+
+Pandoc-Imagine calls `ditaa` to produce a diagram for inclusion in the
+resulting output document. The symlink points to Drawscii, which presents a
+command-line interface compatible to Ditaa and renders the diagram as a PDF.
+
+Note that drawing in Ditaa works somehow differently. Compatibility mode does
+not mean that the same output is produced from the same input. Not even all the
+command-line options of Ditaa are supported, just enough for the Pandoc
+integration to work.
+
+
+
+## Drawing
+
+FIXME: Lines, straight corners, round corners, text
 
 
 
@@ -55,7 +142,7 @@ TODO
 Drawscii has these build dependencies:
 
 - [Qt](https://www.qt.io) 5.x
-- [Qbs](https://doc.qt.io/qbs/) 1.11+
+- [Qbs](https://doc.qt.io/qbs/) 1.12+
 
 Although we use the Qbs build system, there are wrapper scripts that enable
 the standard Linux build commands:

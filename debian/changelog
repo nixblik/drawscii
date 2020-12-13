@@ -1,3 +1,11 @@
+drawscii (0.8-1~bionic) bionic; urgency=low
+
+  * Complete rework of the underlying parser and drawing algorithm.
+  * Different way of drawing corners and dashed lines in ASCII.
+  * Documentation and tests completed.
+
+ -- Uwe Salomon <post@uwesalomon.de>  Sun, 13 Dec 2020 07:00:07 +0100
+
 drawscii (0.5-2~bionic) bionic; urgency=medium
 
   * Initial Release.
