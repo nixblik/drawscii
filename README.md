@@ -201,15 +201,15 @@ line crossings, and at line endings:
 
 Drawscii detects closed shapes and fills them with a white background. The fill
 color can be changed by writing `c` followed by a hexadecimal RGB code inside
-the shape, as illustrated below. Closed shapes will also get a shadow if their
-contour does not contain arrows or too much dashed line.
+the shape, as illustrated below. The outermost closed shapes will also get a
+shadow if their contour does not contain arrows or too much dashed line.
 
 ```txt <!-- doc/colors.txt -->
 +---------------------+   +-----+   +-----+   +- - -+
 |+----+   +----+  c357|   |cBLK |   |cBLU |   :cRED |
-||c135|   |c79A|      |   +-----+   +- - -+   +- - -+
+||c135|   |c79A|      |   +--o--+   +- - -+   +- - -+
 |+----+   +----+      |
-|                /----'   +-----+   +-----+   +-->--+
+|                /----'   +--*--+   +-----+   +-->--+
 |+----+   +----+ |        |cGRE :   |cYEL :   |cPNK |
 ||c024|   |    | |        +-----+   +- - -+   +--<--+
 |+----+   +----+ |

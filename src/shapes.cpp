@@ -145,8 +145,6 @@ void ShapeFinder::findClosedShapeAt(Node::edge_ptr edge0)
 {
   edge0->setDone();
   auto node1 = &mGraph[edge0->target()];
-  if (!node1->isClosedMark())
-    return;
 
   mShapePts.clear();
   mShapePts.emplace_back(edge0->source(), Angle{0}, Angle{0}, 0);
@@ -163,12 +161,8 @@ void ShapeFinder::findClosedShapeAt(Node::edge_ptr edge0)
       continue;
     }
 
-    // Check that new point is ok for shape
     edge->setDone();
     auto nextNode  = &mGraph[edge->target()];
-    if (!nextNode->isClosedMark())
-      continue;
-
     auto nextAngle = edge->angle();
     auto angleSum  = cur.angleSum + nextAngle.relativeTo(cur.angle);
     auto dashCt    = cur.dashCt + (edge->style() == Edge::Dashed);
@@ -194,10 +188,13 @@ void ShapeFinder::addClosedShape(ShapePoints::const_iterator begin, ShapePoints:
 {
   Shape shape;
   shape.moveTo(begin->node->point());
+  bool closed = begin->node->isClosedMark();
 
   for (auto i = begin + 1; i != end; ++i)
   {
     auto node = i->node;
+    closed   &= node->isClosedMark();
+
     if (node->form() == Node::Bezier)
     {
       Node* next;
@@ -207,6 +204,7 @@ void ShapeFinder::addClosedShape(ShapePoints::const_iterator begin, ShapePoints:
         next = (begin+1)->node;
 
       shape.arcTo(next->point(), node->point());
+      closed &= next->isClosedMark();
     }
     else
       shape.lineTo(node->point());
@@ -214,7 +212,7 @@ void ShapeFinder::addClosedShape(ShapePoints::const_iterator begin, ShapePoints:
 
   if (angle.degrees() < 0)
     mShapes.inner.emplace_front(std::move(shape));
-  else if (dashCt * 4 < end - begin)
+  else if (closed && dashCt * 4 < end - begin)
     mShapes.outer.emplace_front(std::move(shape));
 }
 
