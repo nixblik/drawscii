@@ -18,6 +18,7 @@
 #include "test_drawscii.h"
 #include "tempfile.h"
 #include <stdexcept>
+#include <QFont>
 #include <QImage>
 #include <QProcess>
 QTEST_MAIN(TestDrawscii)
@@ -28,6 +29,10 @@ void TestDrawscii::initTestCase()
 {
   mTmpDir = QFINDTESTDATA("tmp");
   QVERIFY(!mTmpDir.isEmpty());
+
+  QFont defaultFont{"Open Sans"};
+  defaultFont.setPixelSize(12);
+  QVERIFY(defaultFont.exactMatch());
 }
 
 
