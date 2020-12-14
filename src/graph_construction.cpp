@@ -277,6 +277,7 @@ void GraphConstructor::createHorzLine(int x, int y, Edge::Style style)
   auto ch = mText(x+1, y);
   if (ch == OneOf{L"-="})
   {
+    checkDash              = (ch == '-' && iswspace(mText(x+2, y)));
     categoryXY             = Category::Drawing;
     mText.category(x+1, y) = Category::Drawing;
   }

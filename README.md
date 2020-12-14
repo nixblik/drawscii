@@ -138,9 +138,9 @@ This section gives an overview of the rendering capabilities of Drawscii, by
 way of example. First, these are the line styles that are recognized:
 
 ```txt <!-- doc/lines.txt -->
--------    |  !  :      / \         Mixing styles  |
-=======    |  !  :     /   \        ---- - - ----  :
-- - - -    |  !  :    /     \       ---=======---  :
+-------    |  !  :      / \         Mixing styles  |     +- - - -- - -+
+=======    |  !  :     /   \        ---- - - ----  :     :exactly fits:
+- - - -    |  !  :    /     \       ---=======---  :     +- - -- - - -+
 ```
 
 ![Line styles in Drawscii](doc/lines.png)
