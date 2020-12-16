@@ -80,7 +80,7 @@ try
   auto output = mTmpDir + "/" + fbasename + "." + suffix;
   auto truth  = QFINDTESTDATA("output/" + fbasename + "." + suffix);
 
-  QCOMPARE(runDrawscii(args.split(' ', QString::SkipEmptyParts) << "-o" << output << input), 0);
+  QVERIFY(runDrawscii(args.split(' ', QString::SkipEmptyParts) << "-o" << output << input, 0));
   checkImagesEqual(output, truth);
 }
 catch (const std::exception& e)
@@ -90,24 +90,24 @@ catch (const std::exception& e)
 
 void TestDrawscii::errors()
 {
-  QCOMPARE(runDrawscii({}), 1);
+  QVERIFY(runDrawscii({}, 1));
   QVERIFY(mStderr.contains("error:"));
 
-  QCOMPARE(runDrawscii({QFINDTESTDATA("input/can.txt")}), 1);
+  QVERIFY(runDrawscii({QFINDTESTDATA("input/can.txt")}, 1));
   QVERIFY(mStderr.contains("error:"));
 
   TempFile tmp{"png"};
-  QCOMPARE(runDrawscii({tmp.fileName(), QFINDTESTDATA("input/can.txt")}), 1);
+  QVERIFY(runDrawscii({tmp.fileName(), QFINDTESTDATA("input/can.txt")}, 1));
   QVERIFY(mStderr.contains("error:"));
 
-  QCOMPARE(runDrawscii({"-o", tmp.fileName(), "does/not/exist.txt"}), 1);
+  QVERIFY(runDrawscii({"-o", tmp.fileName(), "does/not/exist.txt"}, 1));
   QVERIFY(mStderr.contains("error:"));
   QVERIFY(mStderr.contains("does/not/exist.txt"));
 }
 
 
 
-int TestDrawscii::runDrawscii(const QStringList& args)
+bool TestDrawscii::runDrawscii(const QStringList& args, int expectedExitCode)
 {
   QProcess proc;
   proc.start(DRAWSCII_BINARY, args);
@@ -128,7 +128,15 @@ int TestDrawscii::runDrawscii(const QStringList& args)
     throw std::runtime_error{"draawsci terminated abnormally: " + proc.errorString().toStdString()};
 
   mStderr = proc.readAllStandardError().simplified();
-  return proc.exitCode();
+
+  if (proc.exitCode() != expectedExitCode)
+  {
+    qDebug("ERROR: drawscii exit code mismatch (expected=%i, actual=%i)", expectedExitCode, proc.exitCode());
+    qDebug("%s", qPrintable(mStderr));
+    return false;
+  }
+
+  return true;
 }
 
 

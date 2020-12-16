@@ -31,7 +31,7 @@ class TestDrawscii : public QObject
     void errors();
 
   private:
-    int runDrawscii(const QStringList& args);
+    bool runDrawscii(const QStringList& args, int expectedExitCode);
     void checkImagesEqual(const QString& output, const QString& truth);
 
     QString mTmpDir;

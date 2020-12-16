@@ -300,7 +300,7 @@ TextImage readTextImage(QString fname, QTextCodec* codec, uint tabWidth)
     if (!wif.is_open())
       throw std::system_error{errno, std::system_category(), fname.toStdString()};
 
-    wif.imbue(std::locale{"en_US.UTF-8"});
+    wif.imbue(std::locale{"C.UTF-8"});
     return TextImage::read(wif, tabWidth);
   }
 }

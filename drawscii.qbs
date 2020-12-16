@@ -19,7 +19,7 @@ import qbs
 
 Project
 {
-  property string version: "0.8.1"
+  property string version: "0.8.2"
   property string bindir: "bin"
   property bool testcoverage: false
 

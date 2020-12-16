@@ -1,8 +1,8 @@
-drawscii (0.8.1-1~bionic) bionic; urgency=low
+drawscii (0.8.2-1~bionic) bionic; urgency=low
 
   * Fix inability to read UTF-8 input files
 
- -- Uwe Salomon <post@uwesalomon.de>  Wed, 16 Dec 2020 21:21:28 +0100
+ -- Uwe Salomon <post@uwesalomon.de>  Wed, 16 Dec 2020 22:40:44 +0100
 
 drawscii (0.8-1~bionic) bionic; urgency=low
 
