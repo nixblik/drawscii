@@ -60,6 +60,9 @@ inline ShapePoint::ShapePoint(Node* n, Angle a, Angle as, int d) noexcept
 
 
 
+/// \internal
+/// Helper class that embodies the Shape finding algorithm.
+///
 class ShapeFinder
 {
   using ShapePoints = std::vector<ShapePoint>;
@@ -195,7 +198,7 @@ void ShapeFinder::addClosedShape(ShapePoints::const_iterator begin, ShapePoints:
     auto node = i->node;
     closed   &= node->isClosedMark();
 
-    if (node->form() == Node::Bezier)
+    if (node->form() == Node::Curved)
     {
       Node* next;
       if (i + 1 != end)
@@ -252,9 +255,9 @@ void ShapeFinder::findLines()
 
     if (ct == 1)
       endings.push_back(&node);
-    else if (ct >= 3 && node.form() != Node::Bezier)
+    else if (ct >= 3 && node.form() != Node::Curved)
       crossings.push_back(&node);
-    else if (ct == 2 && is != -4 && node.form() != Node::Bezier)
+    else if (ct == 2 && is != -4 && node.form() != Node::Curved)
       corners.push_back(&node);
   }
 
@@ -301,7 +304,7 @@ void ShapeFinder::findLineAt(Node::edge_ptr edge0)
     drawCur = true;
 
     auto curTarget = &mGraph[curEdge->target()];
-    curTarget->reverseEdge(curEdge)->setDone();
+    curTarget->oppositeEdge(curEdge)->setDone();
 
     // Follow the line to the next edge and check that we can draw on
     auto nextEdge = curTarget->continueLine(curEdge);
@@ -319,7 +322,7 @@ void ShapeFinder::findLineAt(Node::edge_ptr edge0)
     }
 
     // Only curved corners have to be drawn, otherwise lines are straight
-    if (curTarget->form() == Node::Bezier)
+    if (curTarget->form() == Node::Curved)
     {
       shape.lineTo(curEdge->source()->point());
       shape.arcTo(nextEdge->target(), curTarget->point());

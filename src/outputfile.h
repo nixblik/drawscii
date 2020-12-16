@@ -21,11 +21,17 @@
 
 
 
+/// Simple QFile wrapper for the output image file that removes the created
+/// file if done() is not called - which happens upon errors.
+///
 class OutputFile : public QFile
 {
   public:
     explicit OutputFile(const QString& name);
     ~OutputFile() override;
+
+    /// Called upon successful generation of the output image file; it will no
+    /// longer be removed upon destruction of this object.
     void done();
 
   private:

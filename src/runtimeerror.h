@@ -22,6 +22,8 @@
 
 
 
+/// Helper class for using std::runtime_error with QStrings.
+///
 class RuntimeError : public std::runtime_error
 {
   public:

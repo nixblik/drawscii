@@ -19,6 +19,7 @@
 
 
 
+/// \internal
 /// Provides syntactic sugar for testing whether a constant string contains a
 /// particular character.
 ///
@@ -37,13 +38,16 @@ class OneOf
 };
 
 
+/// \internal
 /// Whether \a ch is contained in \a haystack's string.
 bool operator==(wchar_t ch, const OneOf& haystack) noexcept
 { return haystack.contains(ch); }
 
 
 
+/// \internal
 /// Helper object for graph construction from a text image.
+///
 class GraphConstructor
 {
   public:
@@ -94,14 +98,8 @@ inline GraphConstructor::GraphConstructor(TextImage& text, Graph& graph) noexcep
 
 
 /// First pass of graph construction: Finds complex corner structures, marks
-/// their characters as "drawing", and creates the lines in the corner. These
-/// kind of structures are recognized:
-///
-///                                     |
-///     .-    .-   .-   .-   /-   /-   -)-
-///     |    /     \    '-   |    \-    |
-///
-/// This step is needed for the second pass where adjacent characters might
+/// their characters as "drawing", and creates the lines in the corner. This
+/// step is needed for the second pass where adjacent characters might
 /// otherwise not be recognized as edges.
 ///
 void GraphConstructor::createSomeEdges()
@@ -124,17 +122,17 @@ void GraphConstructor::createSomeEdges()
           break;
 
         case '.':
-          createCorner(x, y, +1, +1, Node::Bezier);
-          createCorner(x, y, -1, +1, Node::Bezier);
+          createCorner(x, y, +1, +1, Node::Curved);
+          createCorner(x, y, -1, +1, Node::Curved);
           break;
 
         case '\'':
-          createCorner(x, y, +1, -1, Node::Bezier);
-          createCorner(x, y, -1, -1, Node::Bezier);
+          createCorner(x, y, +1, -1, Node::Curved);
+          createCorner(x, y, -1, -1, Node::Curved);
           break;
 
-        case ',': createCorner(x, y, +1, +1, Node::Bezier); break;
-        case '`': createCorner(x, y, +1, -1, Node::Bezier); break;
+        case ',': createCorner(x, y, +1, +1, Node::Curved); break;
+        case '`': createCorner(x, y, +1, -1, Node::Curved); break;
 
         case ')': createLeapfrog(x, y, +1); break;
         case '(': createLeapfrog(x, y, -1); break;
@@ -152,7 +150,7 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, Node::Form for
     auto ch2 = mText(x, y+dy);
     if ((ch2 == OneOf{L"|!:+"}) ||
         (ch2 == (dx*dy < 0 ? '/' : '\\') && form == Node::Straight) ||
-        (ch2 == (   dy < 0 ? '.' : '\'') && form == Node::Bezier))
+        (ch2 == (   dy < 0 ? '.' : '\'') && form == Node::Curved))
     {
       mText.category(x, y)    = Category::Drawing;
       mText.category(x+dx, y) = Category::Drawing;
@@ -165,13 +163,13 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, Node::Form for
           mGraph.lineTo(+dx, -dy, Edge::Weak);
           break;
 
-        case Node::Bezier:
+        case Node::Curved:
           mGraph.lineTo(+0, -dy, Edge::Weak).setForm(form);
           mGraph.lineTo(+dx, +0, Edge::Weak);
           break;
       }
     }
-    else if (ch2 == (dx*dy < 0 ? '/' : '\\') && form == Node::Bezier)
+    else if (ch2 == (dx*dy < 0 ? '/' : '\\') && form == Node::Curved)
     {
       mText.category(x, y)    = Category::Drawing;
       mText.category(x+dx, y) = Category::Drawing;
@@ -182,7 +180,7 @@ void GraphConstructor::createCorner(int x, int y, int dx, int dy, Node::Form for
       mGraph.lineTo(+3*dx, +0, Edge::Weak);
     }
 
-    if (form == Node::Bezier && mText(x-dx,y+dy) == (dx*dy > 0 ? '/' : '\\'))
+    if (form == Node::Curved && mText(x-dx,y+dy) == (dx*dy > 0 ? '/' : '\\'))
     {
       mText.category(x, y)       = Category::Drawing;
       mText.category(x+dx, y)    = Category::Drawing;
@@ -223,15 +221,11 @@ void GraphConstructor::createLeapfrog(int x, int y, int)
 
 
 /// Second pass of graph construction: Creates the remaining edges. This
-/// detects all of the regular, straight lines and junctions:
-///
-///     ---   | ! :    / \    +-    +-   -+    -->   ^ |
-///     ===   | ! :   /   \   |    /       \   <--   | v
-///
-/// Edges are created as soon as two adjacent characters to match. The
-/// algorithm therefore searches only rightwards and downwards, thus avoiding
-/// double detections. Line endings at junctions are recognized because the
-/// first pass marked them as "drawing".
+/// detects all of the regular, straight lines and junctions. Edges are created
+/// as soon as two adjacent characters to match. The algorithm therefore
+/// searches only rightwards and downwards, avoiding double detections. Line
+/// endings at junctions are recognized because the first pass marked them as
+/// "drawing".
 ///
 void GraphConstructor::createMoreEdges()
 {

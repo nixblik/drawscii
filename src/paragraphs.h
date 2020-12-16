@@ -24,11 +24,17 @@ class TextImage;
 
 
 
+/// A text paragraph in a TextImage, which is a collection of consecutive text
+/// rows that "overlap" each other in x direction. A paragraph has an
+/// alignment() deduced from the arrangement of the lines in the input file,
+/// and is output as one unit, preserving the alignment.
+///
 class Paragraph
 {
   using wstring_view = std::experimental::wstring_view;
 
   public:
+    /// Creates the paragraph with the first \a row at position \a x, \a y.
     Paragraph(wstring_view row, int x, int y);
 
     int top() const noexcept
@@ -46,23 +52,34 @@ class Paragraph
     int bottom() const noexcept
     { return mTop + static_cast<int>(mRows.size()) - 1; }
 
+    /// A position at the top of the paragraph that is definitely "inside" the
+    /// paragraph's text, not only inside the bounding rectangle as {left(),
+    /// top()} would be, for example.
     int topInnerX() const noexcept
     { return mX0; }
 
+    /// The text row with index \a row.
     const wstring_view& operator[](int row) const noexcept
     {
       assert(row >= 0 && static_cast<size_t>(row) < mRows.size());
       return mRows[static_cast<size_t>(row)].str;
     }
 
+    /// Indentation of the text \a row relative to left().
     int indent(int row) const noexcept
     {
       assert(row >= 0 && static_cast<size_t>(row) < mRows.size());
       return mX0 + mRows[static_cast<size_t>(row)].indent - mLeft;
     }
 
+    /// Adds another \a row to the paragraph at the bottom if it overlaps with
+    /// the row currently at the bottom() of the paragraph. The \a row is
+    /// located at \a x, \a y. Returns true if the row was added.
     bool addRow(wstring_view row, int x, int y);
+
+    /// Alignment of the whole paragraph as deduced from text input.
     Qt::Alignment alignment() const noexcept;
+
     mutable Color color;
 
   private:
@@ -84,4 +101,6 @@ class Paragraph
 
 
 using ParagraphList = std::list<Paragraph>;
+
+/// Extracts all Paragraphs from the \a text image.
 ParagraphList findParagraphs(const TextImage& text);

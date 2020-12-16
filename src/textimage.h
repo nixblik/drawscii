@@ -25,6 +25,7 @@
 
 
 
+/// Categorization of a character in an input TextImage.
 enum class Category : uint8_t
 { Text = 0, Drawing, Other };
 
@@ -63,12 +64,12 @@ class TextImage
     /// bounds, a space character is returned.
     wchar_t operator()(int x, int y) const noexcept;
 
-    /// Whether the character in column \a x, row \a y has been classified as a
-    /// line-drawing character. Initially, all content is considered text.
+    /// How the character in column \a x, row \a y has been categorized.
+    /// Initially, all content is considered Category::Text.
     Category category(int x, int y) const noexcept;
 
-    /// A reference to the classification of the character in column \a x, row
-    /// \a y as drawing.
+    /// A reference to the categorization of the character in column \a x, row
+    /// \a y.
     Category& category(int x, int y) noexcept;
 
     /// Whether the character in column \a x, row \a y is a letter and has an

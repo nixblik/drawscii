@@ -21,4 +21,5 @@
 
 
 
+/// Alias to keep the Qt-independent parts of the source clean.
 using Color = QColor;

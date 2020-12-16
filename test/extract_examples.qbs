@@ -19,7 +19,7 @@ import qbs
 
 Application {
   files: [
-        "extract-examples.cpp",
+        "extract_examples.cpp",
     ]
 
   Depends { name:"drawscii" }

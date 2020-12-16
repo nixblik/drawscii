@@ -39,7 +39,7 @@ inline bool operator==(const Point& a, const Point& b) noexcept
 
 /// Something roughly equivalent to an angle in planar geometry. The class is
 /// introduced for type safety here; and to hide implementation details of
-/// NOdes and Edges.
+/// Nodes and Edges.
 ///
 class Angle
 {
@@ -83,6 +83,7 @@ inline Angle operator-(Angle a, Angle b) noexcept
 class Edge
 {
   public:
+    /// Drawing style of the edge.
     enum Style { None, Invisible, Weak, Solid, Double, Dashed };
 
     constexpr Edge() noexcept
@@ -104,7 +105,27 @@ class Edge
 
 
 
-/// A node in a planar Graph.
+/// A node in a planar Graph. Nodes must have an integer position. They are
+/// connected by edges. Edges have a direction from one node to the other, i.e.
+/// if two nodes are connected, each node has an edge to the other node. The
+/// Graph ensures that edges are always created pairwise.
+///
+/// This particular implementation allows only connections between a node and
+/// the 8 nodes immediately adjacent to it:
+///
+///      3   2   1
+///       *  *  *
+///        \ | /
+///         \|/
+///     4 *--o--* 0       This graph element
+///         /|\           of 9 nodes is the size
+///        / | \          of one character
+///       *  *  *
+///      5   6   7
+///
+/// Edges can be marked "done" using EdgeRef::setDone(). The marks can be
+/// cleared again using clearEdgesDone(). This aids the implementation of
+/// algorithms that traverse the Graph.
 ///
 class Node
 {
@@ -113,7 +134,10 @@ class Node
     class edge_ptr;
     class const_edge_ptr;
 
-    enum Form { Straight, Bezier };
+    /// Form of the edges touching this node.
+    enum Form { Straight, Curved };
+
+    /// Mark to be drawn on top of the node, like circles or arrows.
     enum Mark {
       NoMark = 0,
       EmptyCircle, FilledCircle,
@@ -153,6 +177,7 @@ class Node
     Mark mark() const noexcept
     { return static_cast<Mark>(mMark); }
 
+    /// Whether the mark() can be part of a closed shape.
     bool isClosedMark() const noexcept
     { return mMark < RightArrow; }
 
@@ -168,10 +193,41 @@ class Node
     constexpr int numberOfEdges() const noexcept
     { return 8; }
 
-    const_edge_ptr edge(int idx) const noexcept;
-    edge_ptr edge(int idx) noexcept;
+    /// Kind-of-a pointer to the edge with \a index, which must be in [0, \a
+    /// numberOfEdges()]. The function may return a non-existing edge, which
+    /// must be checked by the caller.
+    const_edge_ptr edge(int index) const noexcept;
+
+    /// \overload
+    edge_ptr edge(int index) noexcept;
+
+    /// The next edge to the right of \a prevAngle that exists and is not
+    /// marked done. If no such edge remains, an invalid edge pointer is
+    /// returned. The function does not allow a "u-turn".
+    ///
+    /// Consider the following example:
+    ///
+    ///        (2)
+    ///     *   *   *
+    ///         |
+    ///         |
+    ///     *   o---*  ---> prevAngle
+    ///         |
+    ///         |
+    ///     *   *   *
+    ///        (1)
+    ///
+    /// For this node and the indicated value of prevAngle, the function would
+    /// first return a pointer to edge (1), then if that were marked done, to
+    /// edge (2), and if that were also marked done, an invalid edge pointer.
+    ///
     edge_ptr nextRightwardTodoEdge(Angle prevAngle) noexcept;
-    edge_ptr reverseEdge(const_edge_ptr edge) noexcept;
+
+    /// The edge in the opposite direction of \a edge.
+    edge_ptr oppositeEdge(const_edge_ptr edge) noexcept;
+
+    /// The edge that continues from this node in the same direction as \a
+    /// prevEdge (which is an edge of another, usually adjacent node).
     edge_ptr continueLine(const_edge_ptr prevEdge) noexcept;
 
     bool edgesAllDone() const noexcept
@@ -192,6 +248,9 @@ class Node
 
 
 
+/// Helper class that behaves like a reference to an Edge of a planar Graph. Is
+/// always used through Node::edge_ptr or Node::const_edge_ptr.
+///
 class Node::EdgeRef
 {
   public:
@@ -240,6 +299,10 @@ class Node::EdgeRef
 
 
 
+/// A (modifiable) kind-of-a pointer to an Edge in a planar Graph. While there
+/// is no direct equivalent of a null pointer, it is still possible for an
+/// edge_ptr to point to an invalid (non-existing) edge.
+///
 class Node::edge_ptr
 {
   public:
@@ -247,6 +310,7 @@ class Node::edge_ptr
       : mRef{node, index}
     {}
 
+    /// Whether the edge pointed to exists at all.
     explicit operator bool() const noexcept
     { return mRef.exists(); }
 
@@ -259,6 +323,10 @@ class Node::edge_ptr
 
 
 
+/// A constant kind-of-a pointer to an Edge in a planar Graph. While there is
+/// no direct equivalent of a null pointer, it is still possible for a
+/// const_edge_ptr to point to an invalid (non-existing) edge.
+///
 class Node::const_edge_ptr
 {
   public:
@@ -270,6 +338,7 @@ class Node::const_edge_ptr
       : mRef{const_cast<Node*>(node), index}
     {}
 
+    /// Whether the edge pointed to exists at all.
     explicit operator bool() const noexcept
     { return mRef.exists(); }
 
@@ -282,15 +351,17 @@ class Node::const_edge_ptr
 
 
 
-inline auto Node::edge(int idx) const noexcept -> const_edge_ptr
-{ return const_edge_ptr{this, idx}; }
+inline auto Node::edge(int index) const noexcept -> const_edge_ptr
+{ return const_edge_ptr{this, index}; }
 
 
-inline auto Node::edge(int idx) noexcept -> edge_ptr
-{ return edge_ptr{this, idx}; }
+inline auto Node::edge(int index) noexcept -> edge_ptr
+{ return edge_ptr{this, index}; }
 
 
 
+/// Iterator for the Nodes in a planar Graph.
+///
 template<typename Node>
 class GraphIterator
 {
@@ -320,6 +391,8 @@ class GraphIterator
 
 
 
+/// A planar Graph that consists of Nodes and Edges.
+///
 class Graph
 {
   public:
@@ -327,6 +400,8 @@ class Graph
     using const_iterator = GraphIterator<const Node>;
 
     explicit Graph() noexcept;
+
+    /// Reserves spaces for \a capacity Nodes.
     void reserve(uint capacity);
 
     iterator begin() noexcept
@@ -353,9 +428,19 @@ class Graph
     int bottom() const noexcept
     { return mBottom; }
 
+    /// Reference to the Node at position \a p. The node must already exist.
     Node& operator[](Point p);
+
+    /// Moves the "drawing cursor" to the Node at position \a x, \a y. The node
+    /// is created if it does not exist yet.
     Node& moveTo(int x, int y);
+
+    /// Creates edges with \a style from the current position of the "drawing
+    /// cursor" to the Node which is at \a dx, \a dy relative to the current
+    /// position. All nodes on the way are created if necessary.
     Node& lineTo(int dx, int dy, Edge::Style style);
+
+    /// Resets the "done" marker of all Edges in the graph.
     void clearEdgesDone() noexcept;
 
   public:

@@ -135,7 +135,7 @@ auto Node::nextRightwardTodoEdge(Angle prevAngle) noexcept -> edge_ptr
   int idx  = idx0;
 
   while ((idx = (idx + 1) & 7) != idx0)
-    if (mEdges[idx].exists() && !(mDone & (1u << idx)))
+    if (!(mDone & (1u << idx)))
       return edge(idx);
 
   assert(!noEdgesNode.edge(0));
@@ -144,7 +144,7 @@ auto Node::nextRightwardTodoEdge(Angle prevAngle) noexcept -> edge_ptr
 
 
 
-auto Node::reverseEdge(const_edge_ptr edge) noexcept -> edge_ptr
+auto Node::oppositeEdge(const_edge_ptr edge) noexcept -> edge_ptr
 { return edge_ptr{this, reverseEdgeIndex(edge->index())}; }
 
 
@@ -155,7 +155,7 @@ auto Node::continueLine(const_edge_ptr edge) noexcept -> edge_ptr
   {
     case Straight: return edge_ptr{this, edge->index()};
 
-    case Bezier: {
+    case Curved: {
       int rev = reverseEdgeIndex(edge->index());
       for (int idx = 0; idx < 8; ++idx)
         if (idx != edge->index() && idx != rev && mEdges[idx].exists())

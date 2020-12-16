@@ -28,7 +28,7 @@ Project
 
   references: [
     "src/drawscii.qbs",
-    "test/extract-examples.qbs",
+    "test/extract_examples.qbs",
     "test/test.qbs",
   ]
 

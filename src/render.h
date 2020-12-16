@@ -26,11 +26,15 @@ class TextImage;
 
 
 
+/// How shadows below shapes can be drawn.
 enum class Shadow
 { None, Simple, Blurred };
 
 
 
+/// Embodies a rendering function for rendering a preprocessed ASCII image to a
+/// QPainter.
+///
 class Render
 {
   public:

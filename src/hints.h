@@ -22,8 +22,13 @@ class TextImage;
 
 
 
+/// Represents a drawing hint for a Shape, that is, a small piece of text which
+/// will not be rendered but changes how the shape is drawn.
+///
 struct Hint
 {
+  /// Creates a (fill) color hint for the shape surrounding the point at \a nx,
+  /// \a ny.
   Hint(int nx, int ny, Color c) noexcept;
 
   const int x;
@@ -34,4 +39,6 @@ struct Hint
 
 
 using Hints = std::forward_list<Hint>;
+
+/// Extracts and returns all hints in the \a text image.
 Hints findHints(TextImage& text);

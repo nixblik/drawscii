@@ -21,5 +21,9 @@
 
 
 
+/// Convolutes \a img with a Gaussian blur of radius \a r.
 void blurImage(QImage& img, int r);
+
+/// An ARGB32 image where the alpha channel of each pixel is taken from \a
+/// alpha, while red, green, blue are set to \a color.
 QImage filledImage(QColor color, const QImage& alpha);
