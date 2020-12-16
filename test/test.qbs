@@ -59,6 +59,7 @@ QtApplication {
           "input/text_bg_color.txt",
           "input/text_separation.txt",
           "input/turnkey.txt",
+          "input/unicode.txt",
       ]
   }
 }

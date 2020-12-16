@@ -112,7 +112,7 @@ CmdLineArgs processCmdLine(const QCoreApplication& app, Mode mode)
   // Drawscii options (some of them will be modified for Ditaa compatibility mode)
   QCommandLineOption antialiasOpt{"no-antialias", "Disables anti-aliasing."};
   QCommandLineOption backgroundOpt{"background", "Sets the background color for the output image. The following notations are understood: #RGB, #RRGGBB, #AARRGGBB, transparent, and common color names.", "color"};
-  QCommandLineOption encodingOpt{{"e", "encoding"}, "Sets the encoding of the input file.", "encoding"};
+  QCommandLineOption encodingOpt{{"e", "encoding"}, "Sets the encoding of the input file. Default is UTF-8.", "encoding"};
   QCommandLineOption fontOpt{"font", "Sets the font family for the output image.", "font"};
   QCommandLineOption fontSizeOpt{"font-size", "Sets the font size for the output image. Unit is points for PDF output, otherwise pixels.", "size"};
   QCommandLineOption lineWdOpt{"line-width", "Sets the width of lines for the output image. Unit is points for PDF output, otherwise pixels.", "width"};
@@ -300,6 +300,7 @@ TextImage readTextImage(QString fname, QTextCodec* codec, uint tabWidth)
     if (!wif.is_open())
       throw std::system_error{errno, std::system_category(), fname.toStdString()};
 
+    wif.imbue(std::locale{"en_US.UTF-8"});
     return TextImage::read(wif, tabWidth);
   }
 }
