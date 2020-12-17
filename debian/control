@@ -5,7 +5,8 @@ Maintainer: Uwe Salomon <post@uwesalomon.de>
 Build-Depends: debhelper (>= 10), qbs (>= 1.12), qtbase5-dev, libqt5svg5-dev,
                locales, help2man, fonts-open-sans
 Standards-Version: 4.1.2
-Homepage: https://gitlab.uwesalomon.de:8443/uwe/drawscii/
+Homepage: https://github.com/nixblik/drawscii
+Vcs-Git: https://github.com/nixblik/drawscii.git
 
 Package: drawscii
 Architecture: any

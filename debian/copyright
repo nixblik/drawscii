@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: drawscii
-Source: https://gitlab.uwesalomon.de:8443/uwe/drawscii/
+Source: https://github.com/nixblik/drawscii.git
 
 Files: *
 Copyright: 2020 Uwe Salomon <post@uwesalomon.de>
