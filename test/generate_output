@@ -44,4 +44,5 @@ $DRAWSCII -o $OUTPUT/text_align.png      $INPUT/text_align.txt
 $DRAWSCII -o $OUTPUT/text_bg_color.png   $INPUT/text_bg_color.txt
 $DRAWSCII -o $OUTPUT/text_separation.png $INPUT/text_separation.txt
 $DRAWSCII -o $OUTPUT/turnkey.png         $INPUT/turnkey.txt         --no-antialias
-$DRAWSCII -o $OUTPUT/unicode.png         $INPUT/unicode.txt
+$DRAWSCII -o $OUTPUT/unicode.png         $INPUT/unicode.txt         --encoding UTF-8
+$DRAWSCII -o $OUTPUT/unicode.bmp         $INPUT/unicode.txt

@@ -3,7 +3,7 @@ Section: graphics
 Priority: optional
 Maintainer: Uwe Salomon <post@uwesalomon.de>
 Build-Depends: debhelper (>= 10), qbs (>= 1.12), qtbase5-dev, libqt5svg5-dev,
-               help2man, fonts-open-sans
+               locales, help2man, fonts-open-sans
 Standards-Version: 4.1.2
 Homepage: https://gitlab.uwesalomon.de:8443/uwe/drawscii/
 
