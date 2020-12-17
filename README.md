@@ -141,6 +141,7 @@ way of example. First, these are the line styles that are recognized:
 -------    |  !  :      / \         Mixing styles  |     +- - - -- - -+
 =======    |  !  :     /   \        ---- - - ----  :     :exactly fits:
 - - - -    |  !  :    /     \       ---=======---  :     +- - -- - - -+
+_______
 ```
 
 ![Line styles in Drawscii](doc/lines.png)
@@ -151,11 +152,11 @@ example: There is simply no such character. For the same reason, a line must be
 dashed from start to end in the source text.
 
 ```txt <!-- doc/corners-pointed.txt -->
-       +-----+       +
-\|/    !     |      / \
--+-    !     +=====+
-/|\    !     |      \   \
-       +- - -+       +---+
+       +-----+       +         ____
+\|/    !     |      / \       /    \_/
+-+-    !     +=====+         /  O
+/|\    !     |      \   \    \      _
+       +- - -+       +---+    \____/ \
 ```
 
 ![Pointed corners and junctions in Drawscii](doc/corners-pointed.png)

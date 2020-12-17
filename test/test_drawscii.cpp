@@ -66,6 +66,7 @@ void TestDrawscii::verifyImageOutput_data()
   QTest::newRow("text_bg_color.png")   << "text_bg_color"   << "png" << "";
   QTest::newRow("text_separation.png") << "text_separation" << "png" << "";
   QTest::newRow("turnkey.png")         << "turnkey"         << "png" << "--no-antialias";
+  QTest::newRow("underscore.png")      << "underscore"      << "png" << "";
   QTest::newRow("unicode.png")         << "unicode"         << "png" << "--encoding UTF-8";
 
   std::locale loc{""};

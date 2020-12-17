@@ -1,7 +1,0 @@
-These are               These are
-all left-aligned       definitely
-|                   right-aligned
-|                               |
-|          And these            |
-          are centered
-            roughly

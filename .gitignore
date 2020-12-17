@@ -1,5 +1,4 @@
 /tmp/
-/test/ditaa
 /debian/*.log
 /debian/*.substvars
 /debian/*.debhelper
@@ -7,6 +6,7 @@
 /debian/debhelper-build-stamp
 /debian/drawscii.1
 /debian/drawscii/
+/doc/*.txt
 /config.mk
 *.qbs.user
 *.autosave

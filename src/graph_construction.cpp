@@ -59,6 +59,7 @@ class GraphConstructor
     void createCorner(int x, int y, int dx, int dy, Node::Form form);
     void createLeapfrog(int x, int y, int dx);
     void createHorzLine(int x, int y, Edge::Style style);
+    void createLowHorzLine(int x, int y, Edge::Style style);
     void createVertLine(int x, int y, Edge::Style style);
     void createDiagLine(int x, int y, int dx, Edge::Style style);
     void createHorzJunction(int x, int y, Node::Mark mark);
@@ -238,6 +239,7 @@ void GraphConstructor::createMoreEdges()
       {
         case '-': createHorzLine(x, y, Edge::Solid); break;
         case '=': createHorzLine(x, y, Edge::Double); break;
+        case '_': createLowHorzLine(x, y, Edge::Solid); break;
 
         case '|': createVertLine(x, y, Edge::Solid); break;
         case '!':
@@ -304,6 +306,38 @@ void GraphConstructor::createHorzLine(int x, int y, Edge::Style style)
 
 
 
+void GraphConstructor::createLowHorzLine(int x, int y, Edge::Style style)
+{
+  auto& categoryXY = mText.category(x, y);
+
+  auto ch = mText(x+1, y);
+  if (ch == OneOf{L"_/"})
+  {
+    categoryXY             = Category::Drawing;
+    mText.category(x+1, y) = Category::Drawing;
+  }
+
+  if (mText(x-1, y+1) == '/')
+  {
+    categoryXY               = Category::Drawing;
+    mText.category(x-1, y+1) = Category::Drawing;
+  }
+
+  if (mText(x+1, y+1) == '\\')
+  {
+    categoryXY               = Category::Drawing;
+    mText.category(x+1, y+1) = Category::Drawing;
+  }
+
+  if (categoryXY == Category::Drawing)
+  {
+    mGraph.moveTo(2*x-1, 2*y+1);
+    mGraph.lineTo(+2, +0, style);
+  }
+}
+
+
+
 void GraphConstructor::createVertLine(int x, int y, Edge::Style style)
 {
   auto& categoryXY = mText.category(x, y);
@@ -340,6 +374,15 @@ void GraphConstructor::createDiagLine(int x, int y, int dx, Edge::Style style)
     mText.category(x+dx, y+1) = Category::Drawing;
   }
 
+  if (mText(x-dx, y-1) == '_')
+    draw = true;
+
+  if (mText(x+dx, y) == '_')
+  {
+    draw = true;
+    mText.category(x+dx, y) = Category::Drawing;
+  }
+
   auto& categoryXY = mText.category(x, y);
   if (!draw && categoryXY == Category::Drawing)
   {
@@ -351,7 +394,7 @@ void GraphConstructor::createDiagLine(int x, int y, int dx, Edge::Style style)
 
   if (draw)
   {
-    mText.category(x, y) = Category::Drawing;
+    categoryXY = Category::Drawing;
     mGraph.moveTo(2*x-dx, 2*y-1);
     mGraph.lineTo(+2*dx, +2, style);
   }
